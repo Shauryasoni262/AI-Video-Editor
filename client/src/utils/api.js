@@ -70,6 +70,53 @@ export async function parseAiCommand(prompt, context) {
   return await res.json();
 }
 
+export async function requestAiPlan(prompt, { filePath, activeClip, projectContext }) {
+  const res = await fetch(`${API_BASE}/api/ai/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, filePath, activeClip, projectContext })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'AI Brain planning failed');
+  }
+
+  const data = await res.json();
+  if (data.videoAnalysis?.sampledThumbnails) {
+    data.videoAnalysis.sampledThumbnails = data.videoAnalysis.sampledThumbnails.map(t => 
+      t.startsWith('/') ? `${API_BASE}${t}` : t
+    );
+  }
+  return data;
+}
+
+export async function fetchAiSettings() {
+  const res = await fetch(`${API_BASE}/api/ai/settings`);
+  if (!res.ok) throw new Error('Failed to load AI settings');
+  return await res.json();
+}
+
+export async function saveAiSettings(settings) {
+  const res = await fetch(`${API_BASE}/api/ai/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings)
+  });
+  if (!res.ok) throw new Error('Failed to save AI settings');
+  return await res.json();
+}
+
+export async function testAiProvider(provider) {
+  const res = await fetch(`${API_BASE}/api/ai/test-connection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider })
+  });
+  if (!res.ok) throw new Error('Provider connection test failed');
+  return await res.json();
+}
+
 export async function startExport(projectData, preset = 'original', customFilename) {
   const res = await fetch(`${API_BASE}/api/export`, {
     method: 'POST',

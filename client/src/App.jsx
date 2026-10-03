@@ -6,13 +6,16 @@ import Preview from './components/Preview';
 import Timeline from './components/Timeline';
 import Properties from './components/Properties';
 import AiAssistant from './components/AiAssistant';
+import AiSettingsModal from './components/AiSettingsModal';
 import ExportModal from './components/ExportModal';
 import ProjectModal from './components/ProjectModal';
 import { 
   fetchStatus, 
   listMediaApi,
   uploadMediaFile, 
-  parseAiCommand, 
+  parseAiCommand,
+  requestAiPlan,
+  fetchAiSettings,
   saveProjectApi 
 } from './utils/api';
 import { Sliders, Sparkles } from 'lucide-react';
@@ -47,9 +50,11 @@ export default function App() {
   const [plannedAction, setPlannedAction] = useState(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  // Modals
+  // Modals & Settings
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
+  const [activeAiProvider, setActiveAiProvider] = useState('local-brain');
 
   // Undo / Redo Stacks
   const [undoStack, setUndoStack] = useState([]);
@@ -62,6 +67,12 @@ export default function App() {
         setFfmpegStatus(data.ffmpeg);
       }
     }).catch(err => console.warn('Could not connect to backend:', err));
+
+    fetchAiSettings().then(data => {
+      if (data?.provider) {
+        setActiveAiProvider(data.provider);
+      }
+    }).catch(() => {});
 
     listMediaApi().then(items => {
       if (items && items.length > 0) {
@@ -343,26 +354,58 @@ export default function App() {
     }
   };
 
-  // 10. AI Command Engine: Analyze & Plan
+  // 10. AI Brain Engine: Analyze & Plan
   const handleAnalyzeCommand = async (prompt, requireConfirmation = true) => {
     try {
       setIsAiProcessing(true);
       const activeClip = videoClips.find(c => c.id === selectedClipId) || videoClips[0];
 
-      const res = await parseAiCommand(prompt, {
-        activeClip,
-        activeClipId: activeClip?.id,
-        currentTime,
-        totalDuration
-      });
+      let res = null;
+      try {
+        // Primary: Real AI Brain with Video Analysis & Multimodal / Heuristic Reasoning
+        res = await requestAiPlan(prompt, {
+          filePath: activeClip?.filePath || activeClip?.fileName || activeClip?.url,
+          activeClip,
+          projectContext: {
+            totalDuration,
+            currentTime,
+            clipsCount: videoClips.length
+          }
+        });
+      } catch (brainErr) {
+        console.warn('AI Brain request failed, falling back to parser:', brainErr.message);
+        // Fallback: Rule-based command parser
+        const fallbackRes = await parseAiCommand(prompt, {
+          activeClip,
+          activeClipId: activeClip?.id,
+          currentTime,
+          totalDuration
+        });
+        if (fallbackRes && fallbackRes.success) {
+          res = {
+            success: true,
+            providerUsed: 'fallback-rules',
+            plan: {
+              summary: fallbackRes.action.description,
+              reasoning: 'Generated from local fallback command parser.',
+              keep: [],
+              remove: [],
+              effects: {},
+              speed: 1.0,
+              legacyAction: fallbackRes.action
+            },
+            videoAnalysis: null
+          };
+        }
+      }
 
-      if (!res.success) {
+      if (!res || !res.success) {
         setCommandHistory(prev => [
           ...prev,
           {
             id: `cmd_${Date.now()}`,
             prompt,
-            error: res.error,
+            error: res?.error || 'Could not understand command.',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             undone: true
           }
@@ -370,16 +413,19 @@ export default function App() {
         return;
       }
 
-      const plan = {
+      const planData = {
         prompt,
-        action: res.action,
+        plan: res.plan,
+        action: res.plan?.legacyAction || null,
+        providerUsed: res.providerUsed,
+        videoAnalysis: res.videoAnalysis,
         activeClip: activeClip ? { ...activeClip } : null
       };
 
       if (requireConfirmation) {
-        setPlannedAction(plan);
+        setPlannedAction(planData);
       } else {
-        handleApplyAction(plan);
+        handleApplyAction(planData);
       }
     } catch (err) {
       alert('AI Analysis error: ' + err.message);
@@ -388,95 +434,147 @@ export default function App() {
     }
   };
 
-  // 10.1 Execute & Mutate Timeline
-  const handleApplyAction = (plan) => {
-    const { prompt, action } = plan;
+  // 10.1 Execute & Mutate Timeline from AI Edit Plan
+  const handleApplyAction = (planData) => {
+    const { prompt, plan, action } = planData;
     const activeClip = videoClips.find(c => c.id === selectedClipId) || videoClips[0];
 
     saveSnapshot();
 
-    if (action.type === 'TRIM_START' && activeClip) {
-      const secs = action.payload.seconds;
-      const newStart = Math.min(activeClip.trimEnd - 0.5, activeClip.trimStart + secs);
-      handleUpdateClip(activeClip.id, { trimStart: Math.round(newStart * 100) / 100 });
-      if (currentTime < (activeClip.timelineStart || 0)) {
-        setCurrentTime(activeClip.timelineStart || 0);
+    // 1. If Real AI Edit Plan
+    if (plan && !plan.legacyAction) {
+      if (activeClip && plan.keep && plan.keep.length > 0) {
+        if (plan.keep.length === 1) {
+          // Single kept segment
+          const seg = plan.keep[0];
+          const newStart = Math.max(0, Math.min(activeClip.duration || 9999, seg.start));
+          const newEnd = Math.max(newStart + 0.2, Math.min(activeClip.duration || 9999, seg.end));
+
+          handleUpdateClip(activeClip.id, {
+            trimStart: Math.round(newStart * 100) / 100,
+            trimEnd: Math.round(newEnd * 100) / 100,
+            speed: plan.speed || 1,
+            effects: { ...activeClip.effects, ...(plan.effects || {}) },
+            muteOriginalAudio: !!plan.muteAudio
+          });
+        } else {
+          // Multiple kept segments (e.g. jump-cuts / best moments montage)
+          const newClips = [];
+          let currentTimelinePos = activeClip.timelineStart || 0;
+
+          for (let i = 0; i < plan.keep.length; i++) {
+            const seg = plan.keep[i];
+            const start = Math.max(0, Math.min(activeClip.duration || 9999, seg.start));
+            const end = Math.max(start + 0.2, Math.min(activeClip.duration || 9999, seg.end));
+            const segDur = (end - start) / (plan.speed || 1);
+
+            newClips.push({
+              ...activeClip,
+              id: i === 0 ? activeClip.id : `clip_${Date.now()}_${i}`,
+              name: `${activeClip.name} (Part ${i + 1})`,
+              trimStart: Math.round(start * 100) / 100,
+              trimEnd: Math.round(end * 100) / 100,
+              timelineStart: Math.round(currentTimelinePos * 100) / 100,
+              speed: plan.speed || 1,
+              effects: { ...activeClip.effects, ...(plan.effects || {}) },
+              muteOriginalAudio: !!plan.muteAudio
+            });
+            currentTimelinePos += segDur;
+          }
+
+          setVideoClips(prev => {
+            const idx = prev.findIndex(c => c.id === activeClip.id);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy.splice(idx, 1, ...newClips);
+              return copy;
+            }
+            return newClips;
+          });
+        }
       }
-    } else if (action.type === 'TRIM_END' && activeClip) {
-      const secs = action.payload.seconds;
-      const newEnd = Math.max(activeClip.trimStart + 0.5, activeClip.trimEnd - secs);
-      handleUpdateClip(activeClip.id, { trimEnd: Math.round(newEnd * 100) / 100 });
-    } else if (action.type === 'SET_DURATION' && activeClip) {
-      const dur = action.payload.duration;
-      const maxSource = activeClip.duration || 9999;
-      const newEnd = Math.min(maxSource, activeClip.trimStart + dur);
-      handleUpdateClip(activeClip.id, { trimEnd: Math.round(newEnd * 100) / 100 });
-    } else if (action.type === 'SET_SPEED' && activeClip) {
-      handleUpdateClip(activeClip.id, { speed: action.payload.speed });
-    } else if (action.type === 'SET_EFFECT' && activeClip) {
-      const { effect, value } = action.payload;
-      handleUpdateClip(activeClip.id, { effects: { ...activeClip.effects, [effect]: value } });
-    } else if (action.type === 'CLEAR_EFFECTS' && activeClip) {
-      handleApplyEffectPreset('normal');
-    } else if (action.type === 'MUTE_AUDIO' && activeClip) {
-      handleUpdateClip(activeClip.id, { muteOriginalAudio: true, volume: 0 });
-    } else if (action.type === 'SPLIT') {
-      handleSplitClip(action.payload.time);
-    } else if (action.type === 'SPLIT_AT_PLAYHEAD') {
-      handleSplitClip(currentTime);
-    } else if (action.type === 'ADD_TEXT') {
-      handleAddTextOverlay(action.payload.text, action.payload.position || 'bottom', action.payload.fontSize || 40);
-    } else if (action.type === 'ADD_AUDIO_TRACK') {
-      const soundFile = mediaFiles.find(m => m.type === 'audio');
-      if (soundFile) {
-        handleAddAudioToTimeline(soundFile);
-      } else {
-        alert('No audio file found in media library. Please import an audio track first.');
+
+      // Apply Text Overlay if plan requests it
+      if (plan.textOverlay) {
+        handleAddTextOverlay(
+          plan.textOverlay.text || 'Highlight',
+          plan.textOverlay.position || 'bottom',
+          plan.textOverlay.fontSize || 40
+        );
+      } else if (plan.captions) {
+        handleAddTextOverlay('Captions / Subtitles', 'bottom', 32);
       }
-    } else if (action.type === 'REMOVE_BORING_PARTS' && activeClip) {
-      const newStart = Math.min(activeClip.trimEnd - 1, activeClip.trimStart + 1.5);
-      handleUpdateClip(activeClip.id, { trimStart: Math.round(newStart * 100) / 100 });
-    } else if (action.type === 'CREATE_REEL' && activeClip) {
-      const targetEnd = Math.min(activeClip.duration || 9999, activeClip.trimStart + 10);
-      handleUpdateClip(activeClip.id, {
-        trimEnd: Math.round(targetEnd * 100) / 100,
-        speed: 1.15,
-        effects: { ...activeClip.effects, saturation: 1.3, contrast: 1.1 }
-      });
-      handleAddTextOverlay('Viral Reel', 'bottom', 40);
+
+      setCommandHistory(prev => [
+        ...prev,
+        {
+          id: `cmd_${Date.now()}`,
+          prompt,
+          friendlyTitle: plan.summary || 'AI Edit Plan Applied',
+          description: plan.reasoning || plan.summary,
+          plannedChanges: (plan.keep || []).map((k, i) => ({
+            label: `Segment ${i + 1} (${k.start}s - ${k.end}s)`,
+            from: 'Raw Footage',
+            to: k.reason
+          })),
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          undone: false
+        }
+      ]);
+
+      setPlannedAction(null);
+      return;
     }
 
-    const friendlyTitles = {
-      TRIM_START: 'Trim from Start',
-      TRIM_END: 'Trim from End',
-      SET_DURATION: 'Duration Trim',
-      SET_SPEED: 'Playback Speed',
-      SET_EFFECT: 'Color & Tone',
-      CLEAR_EFFECTS: 'Reset Color',
-      MUTE_AUDIO: 'Muted Audio',
-      SPLIT: 'Split Clip',
-      SPLIT_AT_PLAYHEAD: 'Razor Split',
-      ADD_TEXT: 'Text Title Added',
-      ADD_AUDIO_TRACK: 'Soundtrack Added',
-      REMOVE_BORING_PARTS: 'Smart Jump-Cut',
-      CREATE_REEL: '10s Social Reel'
-    };
-
-    setCommandHistory(prev => [
-      ...prev,
-      {
-        id: `cmd_${Date.now()}`,
-        prompt,
-        actionType: action.type,
-        friendlyTitle: friendlyTitles[action.type] || 'Timeline Edit',
-        description: action.description,
-        plannedChanges: action.plannedChanges || [],
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        undone: false
+    // 2. Legacy Fallback Action Handling
+    const act = action || plan?.legacyAction;
+    if (act) {
+      if (act.type === 'TRIM_START' && activeClip) {
+        const secs = act.payload.seconds;
+        const newStart = Math.min(activeClip.trimEnd - 0.5, activeClip.trimStart + secs);
+        handleUpdateClip(activeClip.id, { trimStart: Math.round(newStart * 100) / 100 });
+      } else if (act.type === 'TRIM_END' && activeClip) {
+        const secs = act.payload.seconds;
+        const newEnd = Math.max(activeClip.trimStart + 0.5, activeClip.trimEnd - secs);
+        handleUpdateClip(activeClip.id, { trimEnd: Math.round(newEnd * 100) / 100 });
+      } else if (act.type === 'SET_DURATION' && activeClip) {
+        const dur = act.payload.duration;
+        const maxSource = activeClip.duration || 9999;
+        const newEnd = Math.min(maxSource, activeClip.trimStart + dur);
+        handleUpdateClip(activeClip.id, { trimEnd: Math.round(newEnd * 100) / 100 });
+      } else if (act.type === 'SET_SPEED' && activeClip) {
+        handleUpdateClip(activeClip.id, { speed: act.payload.speed });
+      } else if (act.type === 'SET_EFFECT' && activeClip) {
+        const { effect, value } = act.payload;
+        handleUpdateClip(activeClip.id, { effects: { ...activeClip.effects, [effect]: value } });
+      } else if (act.type === 'CLEAR_EFFECTS' && activeClip) {
+        handleApplyEffectPreset('normal');
+      } else if (act.type === 'MUTE_AUDIO' && activeClip) {
+        handleUpdateClip(activeClip.id, { muteOriginalAudio: true, volume: 0 });
+      } else if (act.type === 'SPLIT') {
+        handleSplitClip(act.payload.time);
+      } else if (act.type === 'SPLIT_AT_PLAYHEAD') {
+        handleSplitClip(currentTime);
+      } else if (act.type === 'ADD_TEXT') {
+        handleAddTextOverlay(act.payload.text, act.payload.position || 'bottom', act.payload.fontSize || 40);
       }
-    ]);
 
-    setPlannedAction(null);
+      setCommandHistory(prev => [
+        ...prev,
+        {
+          id: `cmd_${Date.now()}`,
+          prompt,
+          actionType: act.type,
+          friendlyTitle: act.description,
+          description: act.description,
+          plannedChanges: act.plannedChanges || [],
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          undone: false
+        }
+      ]);
+
+      setPlannedAction(null);
+    }
   };
 
   // 10.2 Undo Specific AI Edit
@@ -612,6 +710,8 @@ export default function App() {
                 onCancelPlannedAction={() => setPlannedAction(null)}
                 onUndoLastEdit={handleUndoLastEdit}
                 onClearHistory={() => setCommandHistory([])}
+                onOpenSettings={() => setIsAiSettingsOpen(true)}
+                activeProvider={activeAiProvider}
                 commandHistory={commandHistory}
                 isProcessing={isAiProcessing}
                 activeClip={selectedClip || videoClips[0]}
@@ -658,6 +758,13 @@ export default function App() {
         onClose={() => setIsProjectModalOpen(false)}
         onLoadProject={handleLoadProject}
         onNewProject={handleNewProject}
+      />
+
+      {/* 6. AI Brain & Provider Settings Modal */}
+      <AiSettingsModal 
+        isOpen={isAiSettingsOpen}
+        onClose={() => setIsAiSettingsOpen(false)}
+        onSettingsUpdated={(settings) => setActiveAiProvider(settings?.provider || 'local-brain')}
       />
     </div>
   );

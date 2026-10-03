@@ -9,10 +9,21 @@ import { extractMetadata } from './ffmpeg/metadata.js';
 import { ExportJob } from './ffmpeg/exporter.js';
 import { parseNaturalLanguageCommand } from './ai/parser.js';
 import { ProjectManager } from './projects/projectManager.js';
+import { AiManager } from './ai/aiManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+
+// Load environment variables if .env exists
+try {
+  const envPath = path.join(rootDir, '.env');
+  if (fs.existsSync(envPath) && typeof process.loadEnvFile === 'function') {
+    process.loadEnvFile(envPath);
+  }
+} catch (e) {
+  console.warn('Could not load .env file:', e.message);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -29,6 +40,7 @@ const projectsDir = path.join(storageDir, 'projects');
 });
 
 const projectManager = new ProjectManager(projectsDir);
+const aiManager = new AiManager(storageDir);
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -199,7 +211,61 @@ app.get('/media/:folder/:file', (req, res) => {
   }
 });
 
-// 4. AI Command Parser
+// 4. Real AI Video Editing Brain Endpoints
+app.post('/api/ai/plan', async (req, res) => {
+  try {
+    const { prompt, filePath, activeClip, projectContext } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    // Resolve real file path if relative URL or fileName is passed
+    let resolvedFilePath = filePath;
+    if (resolvedFilePath && !fs.existsSync(resolvedFilePath)) {
+      const candidateInUploads = path.join(uploadsDir, path.basename(resolvedFilePath));
+      if (fs.existsSync(candidateInUploads)) {
+        resolvedFilePath = candidateInUploads;
+      }
+    }
+
+    const result = await aiManager.planEdit({
+      prompt,
+      filePath: resolvedFilePath,
+      activeClip,
+      projectContext
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('AI plan error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/ai/settings', (req, res) => {
+  res.json(aiManager.getPublicSettings());
+});
+
+app.post('/api/ai/settings', (req, res) => {
+  try {
+    const updated = aiManager.saveSettings(req.body);
+    res.json({ success: true, settings: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/ai/test-connection', async (req, res) => {
+  try {
+    const { provider } = req.body;
+    const result = await aiManager.testConnection(provider);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Fallback legacy parser
 app.post('/api/ai/parse', (req, res) => {
   const { prompt, context } = req.body;
   if (!prompt) {
