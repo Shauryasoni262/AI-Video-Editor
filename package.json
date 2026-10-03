@@ -1,0 +1,11 @@
+{
+  "name": "ai-video-editor-suite",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node run.js",
+    "start": "node run.js",
+    "server": "npm --prefix server start",
+    "client": "npm --prefix client run dev"
+  }
+}

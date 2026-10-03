@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Production build outputs
+dist/
+client/dist/
+
+# Logs & temp
+npm-debug.log*
+yarn-debug.log*
+*.log
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Server exports and generated thumbnails
+server/storage/exports/*
+!server/storage/exports/.gitkeep
+server/storage/thumbnails/*
+!server/storage/thumbnails/.gitkeep
+
+# Environment variables
+.env
+.env.*
