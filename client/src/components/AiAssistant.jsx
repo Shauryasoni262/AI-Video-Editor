@@ -240,14 +240,18 @@ export default function AiAssistant({
             </div>
 
             {/* AI Execution Card */}
-            <div className="ai-result-block">
+            <div className={`ai-result-block ${item.isConversational ? 'conversational' : ''}`}>
               <div className="ai-result-top">
                 <div className="ai-action-chip">
-                  <CheckCircle2 size={13} className={item.undone ? 'muted' : 'emerald'} />
+                  {item.isConversational ? (
+                    <Sparkles size={13} style={{ color: '#818cf8' }} />
+                  ) : (
+                    <CheckCircle2 size={13} className={item.undone ? 'muted' : 'emerald'} />
+                  )}
                   <span>{item.friendlyTitle || ACTION_LABELS[item.actionType] || 'AI Edit Applied'}</span>
                 </div>
 
-                {!item.undone ? (
+                {!item.isConversational && (!item.undone ? (
                   <button 
                     type="button"
                     className="ai-undo-trigger"
@@ -259,17 +263,31 @@ export default function AiAssistant({
                   </button>
                 ) : (
                   <span className="ai-undone-flag">⤺ Reverted</span>
-                )}
+                ))}
               </div>
 
-              <div className="ai-result-desc">
+              <div className="ai-result-desc" style={{ whiteSpace: 'pre-line' }}>
                 {item.undone 
                   ? 'This edit was successfully rolled back.' 
                   : (item.description || item.error || 'Timeline updated successfully.')}
               </div>
 
+              {item.isConversational && (
+                <div className="ai-conversational-suggestions">
+                  <button type="button" className="ai-suggest-chip" onClick={() => handleChipClick('Make a clean Instagram reel from this video')}>
+                    ✨ Make Instagram Reel
+                  </button>
+                  <button type="button" className="ai-suggest-chip" onClick={() => handleChipClick('Remove boring parts and keep best moments')}>
+                    ✂️ Remove boring parts
+                  </button>
+                  <button type="button" className="ai-suggest-chip" onClick={() => handleChipClick('Make it brighter and slightly cinematic')}>
+                    🎨 Make cinematic
+                  </button>
+                </div>
+              )}
+
               {/* Before/After diff summary if available */}
-              {!item.undone && item.plannedChanges && item.plannedChanges.length > 0 && (
+              {!item.undone && !item.isConversational && item.plannedChanges && item.plannedChanges.length > 0 && (
                 <div className="ai-inline-diff-tags">
                   {item.plannedChanges.map((ch, i) => (
                     <span key={i} className="ai-diff-tag">
@@ -349,7 +367,13 @@ export default function AiAssistant({
                 <div className="thumbnails-label">Inspected Video Moments:</div>
                 <div className="thumbnails-grid">
                   {plannedAction.videoAnalysis.sampledThumbnails.map((thumbUrl, idx) => (
-                    <img key={idx} src={thumbUrl} alt="Sample frame" className="ai-sample-thumb" />
+                    <img 
+                      key={idx} 
+                      src={thumbUrl} 
+                      alt={`Sample frame ${idx + 1}`} 
+                      className="ai-sample-thumb" 
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                   ))}
                 </div>
               </div>

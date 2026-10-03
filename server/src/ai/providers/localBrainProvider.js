@@ -43,6 +43,27 @@ export class LocalBrainProvider extends BaseAiProvider {
     let reasoning = '';
 
     // =========================================================================
+    // Intent 0: Conversational Greetings / General Queries ("hi", "hello", etc.)
+    // =========================================================================
+    if (/^(hi|hello|hey|greetings|hola|sup|yo|what can you do|help)\b/i.test(p.trim())) {
+      return {
+        provider: 'local-brain',
+        modelName: 'Local Video Brain (FFmpeg Analysis)',
+        isConversational: true,
+        summary: `Hello! I'm your AI Video Editing Brain.`,
+        reasoning: `I've analyzed your video (${duration.toFixed(1)}s, ${videoAnalysis?.metadata?.width || 1920}x${videoAnalysis?.metadata?.height || 1080}, audio present). How would you like me to edit it? You can try asking:\n• "Make a clean Instagram reel"\n• "Remove boring parts and keep the best moments"\n• "Make this brighter and slightly cinematic"\n• "Trim the first 5 seconds"`,
+        targetDuration: duration,
+        keep: [{ start: 0, end: duration, reason: 'Full video clip' }],
+        remove: [],
+        effects: { brightness: 0, contrast: 1.0, saturation: 1.0 },
+        speed: 1.0,
+        muteAudio: false,
+        captions: false,
+        textOverlay: null
+      };
+    }
+
+    // =========================================================================
     // Intent 1: "Remove boring parts / Keep best moments / silence detection"
     // =========================================================================
     if (p.includes('boring') || p.includes('best moments') || p.includes('silence') || p.includes('jump cut') || p.includes('dead air')) {

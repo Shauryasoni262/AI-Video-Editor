@@ -154,9 +154,12 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// 3. High-Performance Range Streaming for Preview
-app.get('/media/:folder/:file', (req, res) => {
-  const { folder, file } = req.params;
+// 3. High-Performance Range Streaming for Preview & Static Media
+app.use('/media', express.static(storageDir));
+
+app.get('/media/:folder/*', (req, res) => {
+  const folder = req.params.folder;
+  const relativePath = req.params[0];
   const safeFolders = {
     uploads: uploadsDir,
     exports: exportsDir,
@@ -168,7 +171,7 @@ app.get('/media/:folder/:file', (req, res) => {
     return res.status(404).send('Not found');
   }
 
-  const filePath = path.join(targetDir, file);
+  const filePath = path.join(targetDir, relativePath);
   if (!fs.existsSync(filePath)) {
     return res.status(404).send('File not found');
   }
@@ -178,10 +181,10 @@ app.get('/media/:folder/:file', (req, res) => {
   const range = req.headers.range;
 
   // For images / thumbnails, stream directly
-  if (file.endsWith('.jpg') || file.endsWith('.png') || file.endsWith('.webp')) {
+  if (filePath.endsWith('.jpg') || filePath.endsWith('.png') || filePath.endsWith('.webp')) {
     res.writeHead(200, {
       'Content-Length': fileSize,
-      'Content-Type': file.endsWith('.png') ? 'image/png' : 'image/jpeg'
+      'Content-Type': filePath.endsWith('.png') ? 'image/png' : 'image/jpeg'
     });
     return fs.createReadStream(filePath).pipe(res);
   }
@@ -197,14 +200,14 @@ app.get('/media/:folder/:file', (req, res) => {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
-      'Content-Type': file.endsWith('.mp3') ? 'audio/mpeg' : (file.endsWith('.wav') ? 'audio/wav' : 'video/mp4')
+      'Content-Type': filePath.endsWith('.mp3') ? 'audio/mpeg' : (filePath.endsWith('.wav') ? 'audio/wav' : 'video/mp4')
     };
     res.writeHead(206, head);
     fileStream.pipe(res);
   } else {
     const head = {
       'Content-Length': fileSize,
-      'Content-Type': file.endsWith('.mp3') ? 'audio/mpeg' : (file.endsWith('.wav') ? 'audio/wav' : 'video/mp4')
+      'Content-Type': filePath.endsWith('.mp3') ? 'audio/mpeg' : (filePath.endsWith('.wav') ? 'audio/wav' : 'video/mp4')
     };
     res.writeHead(200, head);
     fs.createReadStream(filePath).pipe(res);

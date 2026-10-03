@@ -413,6 +413,25 @@ export default function App() {
         return;
       }
 
+      if (res.plan?.isConversational) {
+        // Conversational greeting or guidance: append directly to chat without timeline mutation prompt
+        setCommandHistory(prev => [
+          ...prev,
+          {
+            id: `cmd_${Date.now()}`,
+            prompt,
+            friendlyTitle: res.plan.summary || 'AI Video Copilot',
+            description: res.plan.reasoning || 'I am ready to help you edit your video.',
+            isConversational: true,
+            providerUsed: res.providerUsed,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            undone: false
+          }
+        ]);
+        setPlannedAction(null);
+        return;
+      }
+
       const planData = {
         prompt,
         plan: res.plan,

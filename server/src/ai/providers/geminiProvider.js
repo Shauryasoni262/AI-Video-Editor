@@ -19,16 +19,22 @@ export class GeminiProvider extends BaseAiProvider {
   }
 
   /**
-   * Helper: call Gemini API with automatic retry on temporary 503 demand spikes
+   * Helper: call Gemini API with automatic retry on 503 demand spikes
+   * and seamless failover to gemini-2.5-flash if 3.8-flash hits daily free quota cap.
    */
   async callGeminiApi(payload, maxAttempts = 3) {
-    const apiVersions = ['v1', 'v1beta'];
+    const modelsToTry = [this.model];
+    if (this.model !== 'gemini-2.5-flash') {
+      modelsToTry.push('gemini-2.5-flash');
+    }
+
     let lastError = null;
 
-    for (const apiVer of apiVersions) {
+    for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${this.model}:generateContent?key=${this.apiKey}`;
+          // Google GenAI requires v1beta for response_mime_type: 'application/json'
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
           const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -36,21 +42,28 @@ export class GeminiProvider extends BaseAiProvider {
           });
 
           if (res.status === 200) {
-            return await res.json();
+            const data = await res.json();
+            data._usedModel = modelName;
+            return data;
           }
 
           const errData = await res.json().catch(() => ({}));
           const errMsg = errData.error?.message || `HTTP ${res.status} error`;
           lastError = new Error(errMsg);
 
-          // If high-demand spike (503) or rate-limit (429), wait and retry
+          // If quota exceeded (429), switch immediately to next candidate model (e.g. 2.5-flash)
+          if (res.status === 429 && errMsg.includes('Quota exceeded')) {
+            console.warn(`[Gemini] ${modelName} quota exceeded. Trying backup model...`);
+            break;
+          }
+
+          // If high-demand spike (503), wait and retry
           if (res.status === 503 || res.status === 429) {
             if (attempt < maxAttempts) {
               await new Promise(r => setTimeout(r, 1200 * attempt));
               continue;
             }
           } else {
-            // For other client errors (e.g. 400), don't retry same endpoint
             break;
           }
         } catch (netErr) {
@@ -76,8 +89,9 @@ export class GeminiProvider extends BaseAiProvider {
         generationConfig: { response_mime_type: 'application/json' }
       };
 
-      await this.callGeminiApi(payload, 3);
-      return { success: true, message: `Connected to Google ${this.model} successfully (v1 API)!` };
+      const res = await this.callGeminiApi(payload, 3);
+      const activeModel = res._usedModel || this.model;
+      return { success: true, message: `Connected to Google ${activeModel} successfully (v1beta JSON API)!` };
     } catch (err) {
       return { success: false, message: err.message || 'Gemini connection failed' };
     }
@@ -108,7 +122,9 @@ RULES FOR EDITING:
 3. Keep Segments: List the exact time intervals to preserve on the timeline.
 4. Color/Effects: brightness (-0.5 to +0.5, default 0), contrast (0.5 to 1.5, default 1.0), saturation (0.0 to 2.0, default 1.0).
 5. Speed: Playback speed (0.25 to 4.0, default 1.0).
-6. Response MUST be valid JSON adhering strictly to the schema provided.`;
+6. Response MUST be valid JSON adhering strictly to the schema provided.
+7. GREETINGS & QUESTIONS: If the user says hello/hi, or asks what you can do (not an editing request):
+Set "isConversational": true, keep the whole clip as [0, duration], no effects or speed changes, and in "summary" give a friendly greeting. In "reasoning", explain 3-4 creative ways you can edit their video (e.g. "Make an Instagram reel", "Remove boring parts", "Make it brighter").`;
 
     const userParts = [
       { text: `User Editing Command: "${prompt}"\n\nVideo Context:\nDuration: ${duration}s\nDetected Silences: ${JSON.stringify(silences)}\nDetected Scene Transitions: ${JSON.stringify(scenes)}\n\nPlease reason about the footage and output the structured Edit Plan JSON.` }
@@ -150,10 +166,12 @@ RULES FOR EDITING:
     }
 
     const parsed = JSON.parse(cleanedJson);
-    return this.normalizePlan(parsed, duration, prompt);
+    return this.normalizePlan(parsed, duration, prompt, data._usedModel || this.model);
   }
 
-  normalizePlan(raw, duration, prompt) {
+  normalizePlan(raw, duration, prompt, usedModel) {
+    const isConversational = !!raw.isConversational || /^(hi|hello|hey|greetings|hola|sup|yo|what can you do|help)\b/i.test(prompt.trim());
+
     const keep = Array.isArray(raw.keep) && raw.keep.length > 0
       ? raw.keep.map(k => ({
           start: Math.max(0, Math.min(duration, parseFloat(k.start || 0))),
@@ -178,8 +196,9 @@ RULES FOR EDITING:
 
     return {
       provider: 'gemini',
-      modelName: this.model,
-      summary: raw.summary || `Applied AI edit for: "${prompt}"`,
+      modelName: usedModel || this.model,
+      isConversational,
+      summary: raw.summary || (isConversational ? "Hello! How can I help you edit this video?" : `Applied AI edit for: "${prompt}"`),
       reasoning: raw.reasoning || 'Analyzed video frames, silences and pacing to construct optimal timeline plan.',
       targetDuration: raw.targetDuration || keep.reduce((acc, k) => acc + (k.end - k.start), 0),
       keep,
