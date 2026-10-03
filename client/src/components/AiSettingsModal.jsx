@@ -18,7 +18,7 @@ import { fetchAiSettings, saveAiSettings, testAiProvider } from '../utils/api';
 export default function AiSettingsModal({ isOpen, onClose, onSettingsUpdated }) {
   const [provider, setProvider] = useState('local-brain');
   const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash');
+  const [geminiModel, setGeminiModel] = useState('gemini-3.8-flash');
   const [ollamaEndpoint, setOllamaEndpoint] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3:latest');
   const [localAiEnabled, setLocalAiEnabled] = useState(true);
@@ -36,7 +36,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSettingsUpdated }) 
       fetchAiSettings().then(data => {
         if (data) {
           setProvider(data.provider || 'local-brain');
-          setGeminiModel(data.geminiModel || 'gemini-1.5-flash');
+          setGeminiModel(data.geminiModel || 'gemini-3.8-flash');
           setOllamaEndpoint(data.ollamaEndpoint || 'http://localhost:11434');
           setOllamaModel(data.ollamaModel || 'llama3:latest');
           setLocalAiEnabled(data.localAiEnabled ?? true);
@@ -204,8 +204,9 @@ export default function AiSettingsModal({ isOpen, onClose, onSettingsUpdated }) 
                   value={geminiModel}
                   onChange={(e) => setGeminiModel(e.target.value)}
                 >
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast, Free Tier, Multimodal)</option>
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (Next-Gen, High Speed)</option>
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash (Current, High Speed, Multimodal)</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                 </select>
               </div>
             </div>

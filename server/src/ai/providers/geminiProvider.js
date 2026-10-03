@@ -1,8 +1,9 @@
 import { BaseAiProvider } from './baseProvider.js';
 
 /**
- * Google Gemini AI Provider (Gemini 1.5 Flash / 2.0 Flash)
+ * Google Gemini AI Provider (Gemini 3.8 Flash)
  * Supports multimodal reasoning: prompt + metadata + silences/scenes + sampled video frames.
+ * Uses stable v1 API with automatic retry on temporary high-demand (503/429) spikes.
  * Returns strict structured Edit Plan JSON.
  */
 
@@ -10,11 +11,58 @@ export class GeminiProvider extends BaseAiProvider {
   constructor(options = {}) {
     super('gemini');
     this.apiKey = options.apiKey || process.env.GEMINI_API_KEY || '';
-    this.model = options.model || 'gemini-1.5-flash';
+    this.model = options.model || 'gemini-3.8-flash';
   }
 
   isAvailable() {
     return !!(this.apiKey && this.apiKey.trim().length > 10);
+  }
+
+  /**
+   * Helper: call Gemini API with automatic retry on temporary 503 demand spikes
+   */
+  async callGeminiApi(payload, maxAttempts = 3) {
+    const apiVersions = ['v1', 'v1beta'];
+    let lastError = null;
+
+    for (const apiVer of apiVersions) {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${this.model}:generateContent?key=${this.apiKey}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.status === 200) {
+            return await res.json();
+          }
+
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error?.message || `HTTP ${res.status} error`;
+          lastError = new Error(errMsg);
+
+          // If high-demand spike (503) or rate-limit (429), wait and retry
+          if (res.status === 503 || res.status === 429) {
+            if (attempt < maxAttempts) {
+              await new Promise(r => setTimeout(r, 1200 * attempt));
+              continue;
+            }
+          } else {
+            // For other client errors (e.g. 400), don't retry same endpoint
+            break;
+          }
+        } catch (netErr) {
+          lastError = netErr;
+          if (attempt < maxAttempts) {
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+          }
+        }
+      }
+    }
+
+    throw lastError || new Error(`Failed to generate content with ${this.model}`);
   }
 
   async testConnection() {
@@ -23,26 +71,15 @@ export class GeminiProvider extends BaseAiProvider {
     }
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
       const payload = {
         contents: [{ parts: [{ text: 'Respond with JSON {"status": "ok"}' }] }],
         generationConfig: { response_mime_type: 'application/json' }
       };
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        return { success: false, message: err.error?.message || `HTTP ${res.status} error` };
-      }
-
-      return { success: true, message: `Connected to Google ${this.model} successfully!` };
+      await this.callGeminiApi(payload, 3);
+      return { success: true, message: `Connected to Google ${this.model} successfully (v1 API)!` };
     } catch (err) {
-      return { success: false, message: err.message };
+      return { success: false, message: err.message || 'Gemini connection failed' };
     }
   }
 
@@ -98,25 +135,21 @@ RULES FOR EDITING:
       }
     };
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Gemini API error (HTTP ${res.status})`);
-    }
-
-    const data = await res.json();
+    const data = await this.callGeminiApi(payload, 3);
     const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!candidateText) {
       throw new Error('Gemini returned an empty response.');
     }
 
-    const parsed = JSON.parse(candidateText);
+    // Clean any markdown code fences if model returned ```json ... ```
+    let cleanedJson = candidateText.trim();
+    if (cleanedJson.startsWith('```json')) {
+      cleanedJson = cleanedJson.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+    } else if (cleanedJson.startsWith('```')) {
+      cleanedJson = cleanedJson.replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+    }
+
+    const parsed = JSON.parse(cleanedJson);
     return this.normalizePlan(parsed, duration, prompt);
   }
 
@@ -132,7 +165,7 @@ RULES FOR EDITING:
     const remove = Array.isArray(raw.remove)
       ? raw.remove.map(r => ({
           start: Math.max(0, Math.min(duration, parseFloat(r.start || 0))),
-          end: Math.max(0, Math.min(duration, parseFloat(r.end || duration))),
+          end: Math.max(0.1, Math.min(duration, parseFloat(r.end || duration))),
           reason: r.reason || 'Removed section'
         }))
       : [];
@@ -163,3 +196,4 @@ RULES FOR EDITING:
     };
   }
 }
+

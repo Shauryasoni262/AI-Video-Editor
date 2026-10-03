@@ -20,7 +20,7 @@ export class AiManager {
     const defaults = {
       provider: process.env.GEMINI_API_KEY ? 'gemini' : 'local-brain',
       geminiApiKey: process.env.GEMINI_API_KEY || '',
-      geminiModel: 'gemini-1.5-flash',
+      geminiModel: 'gemini-3.8-flash',
       ollamaEndpoint: 'http://localhost:11434',
       ollamaModel: 'llama3:latest',
       localAiEnabled: true,
@@ -32,6 +32,9 @@ export class AiManager {
       try {
         const raw = fs.readFileSync(this.settingsFile, 'utf-8');
         const parsed = JSON.parse(raw);
+        if (parsed.geminiModel === 'gemini-1.5-flash') {
+          parsed.geminiModel = 'gemini-3.8-flash';
+        }
         return { ...defaults, ...parsed };
       } catch (err) {
         console.warn('Failed parsing settings.json:', err.message);

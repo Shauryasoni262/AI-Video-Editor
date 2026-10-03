@@ -25,3 +25,6 @@ server/storage/thumbnails/*
 # Environment variables
 .env
 .env.*
+
+# AI Settings & API keys
+server/storage/settings.json
