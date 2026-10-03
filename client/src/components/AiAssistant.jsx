@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, 
   Send, 
   Bot, 
+  User,
   CheckCircle2, 
   Undo2, 
   X, 
   ArrowRight, 
   Terminal, 
-  AlertCircle,
-  Check,
-  Film
+  Check, 
+  Film,
+  Zap,
+  Sliders,
+  Scissors,
+  Palette,
+  Volume2,
+  Video,
+  CornerDownLeft,
+  RotateCcw
 } from 'lucide-react';
 
 export default function AiAssistant({
@@ -24,20 +32,51 @@ export default function AiAssistant({
   activeClip
 }) {
   const [prompt, setPrompt] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [requireConfirmation, setRequireConfirmation] = useState(true);
+  const historyBottomRef = useRef(null);
 
-  const sampleCommands = [
-    'Remove the first 5 seconds',
-    'Make it brighter',
-    'Increase speed to 1.25x',
-    'Remove original audio',
-    'Add text Epic Moment',
-    'Make this 30 seconds',
-    'Remove the boring parts',
-    'Add this song',
-    'Add captions',
-    'Make a clean short reel from this video'
+  const categories = [
+    { id: 'all', label: 'All', icon: Sparkles },
+    { id: 'trim', label: 'Trim & Cut', icon: Scissors },
+    { id: 'color', label: 'Color & Look', icon: Palette },
+    { id: 'audio_speed', label: 'Audio & Speed', icon: Volume2 },
+    { id: 'creative', label: 'Text & Reels', icon: Video }
   ];
+
+  const commandsByCategory = {
+    trim: [
+      { text: 'Remove the first 5 seconds', badge: '5s cut' },
+      { text: 'Make this 30 seconds', badge: '30s duration' },
+      { text: 'Remove the boring parts', badge: 'jump-cut' },
+      { text: 'Split at playhead', badge: 'razor' }
+    ],
+    color: [
+      { text: 'Make it brighter', badge: '+15% light' },
+      { text: 'Boost vibrant saturation', badge: 'punchy' },
+      { text: 'Make it black and white', badge: 'B&W' },
+      { text: 'Vintage sepia look', badge: 'retro' }
+    ],
+    audio_speed: [
+      { text: 'Increase speed to 1.25x', badge: '1.25x' },
+      { text: 'Slow down to 0.5x', badge: '0.5x' },
+      { text: 'Remove original audio', badge: 'mute' },
+      { text: 'Add this song', badge: 'soundtrack' }
+    ],
+    creative: [
+      { text: 'Add text Epic Moment', badge: 'title' },
+      { text: 'Add captions', badge: 'subtitles' },
+      { text: 'Make a clean short reel from this video', badge: 'viral reel' },
+      { text: 'Mirror video horizontally', badge: 'flip' }
+    ]
+  };
+
+  const getFilteredCommands = () => {
+    if (selectedCategory === 'all') {
+      return Object.values(commandsByCategory).flat();
+    }
+    return commandsByCategory[selectedCategory] || [];
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -46,77 +85,96 @@ export default function AiAssistant({
     setPrompt('');
   };
 
-  const handleChipClick = (cmd) => {
+  const handleChipClick = (cmdText) => {
     if (isProcessing) return;
-    onAnalyzeCommand(cmd, requireConfirmation);
+    onAnalyzeCommand(cmdText, requireConfirmation);
   };
 
+  // Scroll to bottom of chat when history updates
+  useEffect(() => {
+    if (historyBottomRef.current) {
+      historyBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [commandHistory, plannedAction]);
+
   return (
-    <div className="ai-panel">
-      {/* Banner */}
-      <div className="ai-header-banner">
-        <div className="ai-banner-title">
-          <Sparkles size={16} />
-          <span>Timeline AI Controller</span>
+    <div className="ai-assistant-wrapper">
+      {/* 1. Sleek AI Engine Header Console */}
+      <div className="ai-console-header">
+        <div className="ai-console-brand">
+          <div className="ai-glow-avatar">
+            <Sparkles size={16} className="ai-sparkle-icon" />
+          </div>
+          <div className="ai-console-meta">
+            <div className="ai-console-title">Timeline AI Copilot</div>
+            <div className="ai-engine-status">
+              <span className="ai-live-pulse" />
+              <span>100% Local Engine • Zero Latency</span>
+            </div>
+          </div>
         </div>
-        <div className="ai-banner-desc">
-          Type natural language commands to directly mutate the timeline and control FFmpeg.
-        </div>
+
+        {/* Target context badge */}
         {activeClip && (
-          <div style={{ fontSize: '10px', color: '#a5b4fc', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="ai-target-pill" title={`Target: ${activeClip.name}`}>
             <Film size={11} />
-            <span>Target: <strong>{activeClip.name}</strong></span>
+            <span className="ai-target-name">{activeClip.name}</span>
+            <span className="ai-target-badge">{activeClip.speed || 1}x</span>
           </div>
         )}
       </div>
 
-      {/* 3. SHOW THE PLANNED ACTION BEFORE EXECUTING IT */}
+      {/* 2. Interactive Planned Action Card (If any pending confirmation) */}
       {plannedAction && (
-        <div className="ai-planned-card">
-          <div className="ai-planned-header">
-            <div className="ai-planned-title">
-              <Sparkles size={14} style={{ color: 'var(--primary)' }} />
-              <span>Planned Edit: {plannedAction.action.type}</span>
+        <div className="ai-proposal-card">
+          <div className="ai-proposal-header">
+            <div className="ai-proposal-tag">
+              <Sparkles size={13} />
+              <span>PROPOSED ACTION: {plannedAction.action.type}</span>
             </div>
-            <button className="btn-icon" onClick={onCancelPlannedAction} title="Dismiss">
+            <button 
+              className="btn-icon-subtle" 
+              onClick={onCancelPlannedAction}
+              title="Dismiss proposal"
+            >
               <X size={14} />
             </button>
           </div>
 
-          <div className="ai-planned-prompt">
+          <div className="ai-proposal-prompt">
             "{plannedAction.prompt}"
           </div>
 
-          <div className="ai-planned-desc">
+          <div className="ai-proposal-desc">
             {plannedAction.action.description}
           </div>
 
           {plannedAction.action.plannedChanges && (
-            <div className="ai-changes-table">
+            <div className="ai-proposal-diff-box">
+              <div className="ai-diff-heading">Planned Timeline Mutations:</div>
               {plannedAction.action.plannedChanges.map((change, idx) => (
-                <div key={idx} className="ai-change-row">
-                  <span className="ai-change-label">{change.label}</span>
-                  <div className="ai-change-values">
-                    <span className="ai-change-from">{change.from}</span>
-                    <ArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
-                    <span className="ai-change-to">{change.to}</span>
+                <div key={idx} className="ai-diff-row">
+                  <span className="ai-diff-label">{change.label}</span>
+                  <div className="ai-diff-flow">
+                    <span className="ai-diff-old">{change.from}</span>
+                    <ArrowRight size={11} className="ai-diff-arrow" />
+                    <span className="ai-diff-new">{change.to}</span>
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="ai-planned-actions">
+          <div className="ai-proposal-buttons">
             <button 
-              className="btn btn-primary" 
+              className="ai-btn-apply"
               onClick={() => onApplyAction(plannedAction)}
-              style={{ flex: 1, justifyContent: 'center' }}
             >
               <Check size={14} />
-              <span>Apply Edit to Timeline</span>
+              <span>Apply to Timeline</span>
             </button>
             <button 
-              className="btn btn-ghost" 
+              className="ai-btn-cancel" 
               onClick={onCancelPlannedAction}
             >
               Cancel
@@ -125,102 +183,144 @@ export default function AiAssistant({
         </div>
       )}
 
-      {/* Quick Action Chips */}
-      <div>
-        <div className="ai-chips-title" style={{ marginBottom: '8px' }}>
-          Suggested Natural Language Edits
-        </div>
-        <div className="ai-chips-container">
-          {sampleCommands.map((cmd, i) => (
+      {/* 3. Category Filter Tabs */}
+      <div className="ai-category-strip">
+        {categories.map((cat) => {
+          const Icon = cat.icon;
+          const isActive = selectedCategory === cat.id;
+          return (
             <button 
-              key={i} 
-              className="ai-chip" 
-              onClick={() => handleChipClick(cmd)}
-              disabled={isProcessing}
+              key={cat.id}
+              className={`ai-cat-pill ${isActive ? 'active' : ''}`}
+              onClick={() => setSelectedCategory(cat.id)}
             >
-              {cmd}
+              <Icon size={12} />
+              <span>{cat.label}</span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* Execution History & Undo Support */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div className="ai-chips-title" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>Executed Actions & History</span>
-          <Terminal size={12} />
+      {/* 4. Filtered Prompt Chips */}
+      <div className="ai-chips-carousel">
+        {getFilteredCommands().map((cmd, i) => (
+          <button 
+            key={i} 
+            className="ai-modern-chip"
+            onClick={() => handleChipClick(cmd.text)}
+            disabled={isProcessing}
+            title={cmd.text}
+          >
+            <span className="ai-chip-text">{cmd.text}</span>
+            <span className="ai-chip-badge">{cmd.badge}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 5. Conversation History Stream */}
+      <div className="ai-chat-stream">
+        <div className="ai-stream-divider">
+          <span>Execution History & Edits</span>
         </div>
 
-        <div className="ai-history-list">
-          {commandHistory.map((item, idx) => (
-            <div key={idx} className="ai-history-item">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="ai-history-prompt">
-                  <Bot size={13} style={{ color: 'var(--primary)' }} />
-                  <span>"{item.prompt}"</span>
+        {commandHistory.map((item, idx) => (
+          <div key={idx} className={`ai-message-card ${item.undone ? 'undone' : ''}`}>
+            {/* User message header */}
+            <div className="ai-msg-header">
+              <div className="ai-user-bubble">
+                <User size={11} />
+                <span className="ai-user-text">"{item.prompt}"</span>
+              </div>
+              <span className="ai-time-stamp">{item.timestamp}</span>
+            </div>
+
+            {/* AI Action Result */}
+            <div className="ai-result-block">
+              <div className="ai-result-top">
+                <div className="ai-action-chip">
+                  <CheckCircle2 size={12} className={item.undone ? 'muted' : 'emerald'} />
+                  <span>{item.actionType || 'MUTATION'}</span>
                 </div>
-                {/* 4. ALLOW THE USER TO UNDO THE AI EDIT */}
-                {!item.undone && (
+
+                {!item.undone ? (
                   <button 
-                    className="btn-undo-ai"
+                    className="ai-undo-trigger"
                     onClick={() => onUndoLastEdit(idx)}
-                    title="Undo this AI edit from timeline"
+                    title="Undo this specific AI edit"
                   >
-                    <Undo2 size={12} />
-                    <span>Undo</span>
+                    <RotateCcw size={11} />
+                    <span>Undo Edit</span>
                   </button>
+                ) : (
+                  <span className="ai-undone-flag">⤺ Reverted</span>
                 )}
               </div>
 
-              {item.actionType && (
-                <div>
-                  <span className="ai-history-badge">MUTATED: {item.actionType}</span>
-                </div>
-              )}
-
-              <div className="ai-history-result" style={{ color: item.undone ? 'var(--text-dim)' : 'var(--accent-emerald)' }}>
-                {item.undone ? '⤺ Reverted by user' : (item.description || 'Timeline updated successfully.')}
+              <div className="ai-result-desc">
+                {item.undone 
+                  ? 'This modification was rolled back.' 
+                  : (item.description || item.error || 'Timeline updated successfully.')}
               </div>
             </div>
-          ))}
+          </div>
+        ))}
 
-          {commandHistory.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-dim)', fontSize: '11px' }}>
-              No AI edits executed yet. Click a suggestion or type a command!
+        {commandHistory.length === 0 && !plannedAction && (
+          <div className="ai-empty-chat">
+            <div className="ai-empty-illustration">
+              <Sparkles size={28} />
             </div>
-          )}
-        </div>
+            <div className="ai-empty-title">Ready for AI Directing</div>
+            <div className="ai-empty-subtitle">
+              Ask to trim seconds, adjust colors, increase speed, mute audio, or click any prompt pill above.
+            </div>
+          </div>
+        )}
+
+        <div ref={historyBottomRef} />
       </div>
 
-      {/* Plan Preview Toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', padding: '0 4px' }}>
-        <input 
-          type="checkbox" 
-          id="confirmToggle"
-          checked={requireConfirmation} 
-          onChange={(e) => setRequireConfirmation(e.target.checked)}
-          style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-        />
-        <label htmlFor="confirmToggle" style={{ cursor: 'pointer' }}>
-          Show planned action preview before applying
+      {/* 6. Settings Bar (Confirmation toggle) */}
+      <div className="ai-controls-footer-bar">
+        <label className="ai-toggle-label" htmlFor="confirmCheck">
+          <input 
+            type="checkbox" 
+            id="confirmCheck"
+            checked={requireConfirmation} 
+            onChange={(e) => setRequireConfirmation(e.target.checked)}
+            className="ai-styled-checkbox"
+          />
+          <span>Review action proposal before applying</span>
         </label>
       </div>
 
-      {/* Input Form */}
-      <form onSubmit={handleSubmit} className="ai-input-form">
+      {/* 7. Floating Modern Prompt Input Console */}
+      <form onSubmit={handleSubmit} className="ai-input-console">
+        <div className="ai-input-sparkle">
+          <Sparkles size={15} />
+        </div>
         <input 
           type="text" 
-          className="ai-input" 
+          className="ai-console-input" 
           value={prompt} 
           onChange={(e) => setPrompt(e.target.value)} 
-          placeholder="e.g. Remove the first 5 seconds, make it brighter..."
+          placeholder="Instruct AI: e.g. Make it brighter, remove first 5s..."
           disabled={isProcessing}
         />
+        {prompt.trim() && (
+          <button 
+            type="button" 
+            className="ai-clear-btn"
+            onClick={() => setPrompt('')}
+          >
+            <X size={14} />
+          </button>
+        )}
         <button 
           type="submit" 
-          className="ai-send-btn" 
+          className="ai-submit-button" 
           disabled={!prompt.trim() || isProcessing}
-          title="Analyze and Apply AI Edit"
+          title="Send to AI Assistant (Enter ↵)"
         >
           <Send size={14} />
         </button>

@@ -578,7 +578,7 @@ export default function App() {
               onDeleteSelected={() => selectedClipId && handleDeleteSelected(selectedClipId)}
             />
           ) : (
-            <div className="inspector-content">
+            <div className="inspector-content-ai">
               <AiAssistant 
                 onAnalyzeCommand={handleAnalyzeCommand}
                 onApplyAction={handleApplyAction}
