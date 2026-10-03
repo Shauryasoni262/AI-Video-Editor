@@ -357,12 +357,16 @@ export default function App() {
       });
 
       if (!res.success) {
-        setCommandHistory(prev => [{
-          prompt,
-          error: res.error,
-          timestamp: new Date().toLocaleTimeString(),
-          undone: true
-        }, ...prev]);
+        setCommandHistory(prev => [
+          ...prev,
+          {
+            id: `cmd_${Date.now()}`,
+            prompt,
+            error: res.error,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            undone: true
+          }
+        ]);
         return;
       }
 
@@ -442,13 +446,35 @@ export default function App() {
       handleAddTextOverlay('Viral Reel', 'bottom', 40);
     }
 
-    setCommandHistory(prev => [{
-      prompt,
-      actionType: action.type,
-      description: action.description,
-      timestamp: new Date().toLocaleTimeString(),
-      undone: false
-    }, ...prev]);
+    const friendlyTitles = {
+      TRIM_START: 'Trim from Start',
+      TRIM_END: 'Trim from End',
+      SET_DURATION: 'Duration Trim',
+      SET_SPEED: 'Playback Speed',
+      SET_EFFECT: 'Color & Tone',
+      CLEAR_EFFECTS: 'Reset Color',
+      MUTE_AUDIO: 'Muted Audio',
+      SPLIT: 'Split Clip',
+      SPLIT_AT_PLAYHEAD: 'Razor Split',
+      ADD_TEXT: 'Text Title Added',
+      ADD_AUDIO_TRACK: 'Soundtrack Added',
+      REMOVE_BORING_PARTS: 'Smart Jump-Cut',
+      CREATE_REEL: '10s Social Reel'
+    };
+
+    setCommandHistory(prev => [
+      ...prev,
+      {
+        id: `cmd_${Date.now()}`,
+        prompt,
+        actionType: action.type,
+        friendlyTitle: friendlyTitles[action.type] || 'Timeline Edit',
+        description: action.description,
+        plannedChanges: action.plannedChanges || [],
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        undone: false
+      }
+    ]);
 
     setPlannedAction(null);
   };
@@ -585,6 +611,7 @@ export default function App() {
                 plannedAction={plannedAction}
                 onCancelPlannedAction={() => setPlannedAction(null)}
                 onUndoLastEdit={handleUndoLastEdit}
+                onClearHistory={() => setCommandHistory([])}
                 commandHistory={commandHistory}
                 isProcessing={isAiProcessing}
                 activeClip={selectedClip || videoClips[0]}
