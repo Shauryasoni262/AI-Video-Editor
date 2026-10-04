@@ -1,14 +1,14 @@
-import React, { useRef, useState, useEffect } from 'react';
 import { 
   Scissors, 
   Trash2, 
+  Copy,
   ZoomIn, 
   ZoomOut, 
   Split, 
   Layers, 
-  MoveHorizontal,
-  GripVertical,
-  Image as ImageIcon
+  MoveHorizontal, 
+  GripVertical, 
+  Image as ImageIcon 
 } from 'lucide-react';
 import { formatTimecode, formatDuration } from '../utils/timeUtils';
 
@@ -22,6 +22,7 @@ export default function Timeline({
   selectedClipId,
   setSelectedClipId,
   onSplitClip,
+  onDuplicateClip,
   onDeleteClip,
   onUpdateClip,
   onUpdateAudio,
@@ -153,6 +154,20 @@ export default function Timeline({
     };
   }, [isScrubbing, movingClip, draggingTrim, totalDuration, zoomLevel, videoClips, audioClips, textOverlays, setCurrentTime, onUpdateClip, onUpdateAudio, onUpdateText, saveSnapshot]);
 
+  // Keyboard shortcut Ctrl+D / Cmd+D to duplicate selected clip
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        if (selectedClipId && onDuplicateClip) {
+          e.preventDefault();
+          onDuplicateClip(selectedClipId);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedClipId, onDuplicateClip]);
+
   // Start Moving Clip position
   const startClipMove = (e, item, trackType) => {
     if (e.target.closest('.trim-handle')) return; // Do not start move if clicking trim handle
@@ -230,6 +245,16 @@ export default function Timeline({
           <button 
             className="tool-btn"
             disabled={!selectedClipId}
+            onClick={() => selectedClipId && onDuplicateClip && onDuplicateClip(selectedClipId)}
+            title="Duplicate selected clip (Ctrl+D)"
+          >
+            <Copy size={14} />
+            <span>Duplicate (Ctrl+D)</span>
+          </button>
+
+          <button 
+            className="tool-btn"
+            disabled={!selectedClipId}
             onClick={() => selectedClipId && onDeleteClip(selectedClipId)}
             title="Delete selected clip"
           >
@@ -238,7 +263,7 @@ export default function Timeline({
           </button>
 
           <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: '12px' }}>
-            💡 Tip: Drag any clip horizontally to move its position on the timeline!
+            💡 Tip: Drag clip to reposition • Ctrl+D to duplicate
           </span>
         </div>
 

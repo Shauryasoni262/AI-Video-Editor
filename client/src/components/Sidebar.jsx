@@ -1,4 +1,3 @@
-import React, { useState, useRef } from 'react';
 import { 
   Film, 
   Music, 
@@ -11,21 +10,48 @@ import {
   FileVideo, 
   FileAudio,
   Sparkles,
+  Play,
+  Square,
+  Volume2,
   Image as ImageIcon
 } from 'lucide-react';
 import { formatDuration, formatFileSize } from '../utils/timeUtils';
 
 export default function Sidebar({
   mediaFiles,
+  sfxList = [],
   onUploadFile,
   isUploading,
   onAddVideoToTimeline,
   onAddAudioToTimeline,
+  onAddSfxToTimeline,
   onAddTextOverlay,
   onApplyEffectPreset
 }) {
   const [activeTab, setActiveTab] = useState('media');
   const [mediaFilter, setMediaFilter] = useState('all'); // 'all' | 'videos' | 'images'
+  const [playingSfxId, setPlayingSfxId] = useState(null);
+  const audioPreviewRef = useRef(null);
+
+  const handleTogglePlaySfx = (e, sfx) => {
+    e.stopPropagation();
+    if (playingSfxId === sfx.id) {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+        audioPreviewRef.current.currentTime = 0;
+      }
+      setPlayingSfxId(null);
+    } else {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+      }
+      const audio = new Audio(sfx.url);
+      audioPreviewRef.current = audio;
+      audio.play().catch(() => {});
+      setPlayingSfxId(sfx.id);
+      audio.onended = () => setPlayingSfxId(null);
+    }
+  };
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
@@ -333,8 +359,53 @@ export default function Sidebar({
                 </div>
               ))}
               {audioFiles.length === 0 && (
-                <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
-                  No audio tracks imported yet.
+                <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
+                  No custom audio tracks imported yet.
+                </div>
+              )}
+            </div>
+
+            <div className="section-title" style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', marginTop: '18px' }}>
+              Built-in Sound Effects ({sfxList.length})
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {sfxList.map(sfx => (
+                <div 
+                  key={sfx.id} 
+                  className="sfx-item-card"
+                >
+                  <button 
+                    type="button"
+                    className="sfx-play-btn"
+                    onClick={(e) => handleTogglePlaySfx(e, sfx)}
+                    title={playingSfxId === sfx.id ? "Stop preview" : "Play preview"}
+                  >
+                    {playingSfxId === sfx.id ? <Square size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {sfx.name}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                      {sfx.duration}s • {sfx.category || 'SFX'}
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    className="btn btn-ghost" 
+                    style={{ padding: '3px 8px', fontSize: '11px', height: '24px', borderRadius: '4px' }}
+                    onClick={() => onAddSfxToTimeline(sfx)}
+                    title="Add sound effect to timeline"
+                  >
+                    <Plus size={12} />
+                    <span>Add</span>
+                  </button>
+                </div>
+              ))}
+              {sfxList.length === 0 && (
+                <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '11px' }}>
+                  Loading sound effects...
                 </div>
               )}
             </div>
@@ -345,22 +416,22 @@ export default function Sidebar({
         {activeTab === 'text' && (
           <>
             <div className="section-title" style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Text Overlays
+              Text Overlays & Titles
             </div>
             <div className="preset-grid">
-              <div className="preset-card" onClick={() => onAddTextOverlay('Title Text', 'center', 46)}>
+              <div className="preset-card" onClick={() => onAddTextOverlay('Title Text', 'center', 46, 'pop')}>
                 <Type className="preset-icon" size={24} />
-                <div className="preset-label">Center Title</div>
+                <div className="preset-label">Pop Title</div>
               </div>
-              <div className="preset-card" onClick={() => onAddTextOverlay('Subtitle / Caption', 'bottom', 32)}>
+              <div className="preset-card" onClick={() => onAddTextOverlay('Subtitle / Caption', 'bottom', 32, 'fade')}>
                 <Type className="preset-icon" size={24} />
-                <div className="preset-label">Bottom Subtitle</div>
+                <div className="preset-label">Fade Subtitle</div>
               </div>
-              <div className="preset-card" onClick={() => onAddTextOverlay('Top Headline', 'top', 38)}>
+              <div className="preset-card" onClick={() => onAddTextOverlay('Top Headline', 'top', 38, 'slide-up')}>
                 <Type className="preset-icon" size={24} />
-                <div className="preset-label">Top Banner</div>
+                <div className="preset-label">Slide-up Banner</div>
               </div>
-              <div className="preset-card" onClick={() => onAddTextOverlay('Watermark', 'bottom', 22)}>
+              <div className="preset-card" onClick={() => onAddTextOverlay('Watermark', 'bottom', 22, 'none')}>
                 <Sparkles className="preset-icon" size={24} />
                 <div className="preset-label">Watermark</div>
               </div>
@@ -372,11 +443,23 @@ export default function Sidebar({
         {activeTab === 'effects' && (
           <>
             <div className="section-title" style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Color Looks & Styles
+              Stylized Looks & Cinema Grades
             </div>
             <div className="preset-grid">
               <div className="preset-card" onClick={() => onApplyEffectPreset('normal')}>
                 <div className="preset-label">Reset / Normal</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('vignette')}>
+                <div className="preset-label">Vignette Shadow</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('warm')}>
+                <div className="preset-label">Warm Golden Hour</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('cool')}>
+                <div className="preset-label">Cyberpunk Teal</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('filmGrain')}>
+                <div className="preset-label">35mm Film Grain</div>
               </div>
               <div className="preset-card" onClick={() => onApplyEffectPreset('grayscale')}>
                 <div className="preset-label">B&W Noir</div>
@@ -389,6 +472,9 @@ export default function Sidebar({
               </div>
               <div className="preset-card" onClick={() => onApplyEffectPreset('cinematic')}>
                 <div className="preset-label">Cinematic Mood</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('invert')}>
+                <div className="preset-label">Invert / Thermal</div>
               </div>
               <div className="preset-card" onClick={() => onApplyEffectPreset('sharpen')}>
                 <div className="preset-label">Ultra Crisp</div>
@@ -404,14 +490,35 @@ export default function Sidebar({
         {activeTab === 'transitions' && (
           <>
             <div className="section-title" style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Transitions & Fades
+              Motion & Camera Animations
+            </div>
+            <div className="preset-grid">
+              <div className="preset-card" onClick={() => onApplyEffectPreset('kenBurns')}>
+                <div className="preset-label">Ken Burns (In)</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('zoomOut')}>
+                <div className="preset-label">Ken Burns (Out)</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('panRight')}>
+                <div className="preset-label">Slow Pan Right</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('pulse')}>
+                <div className="preset-label">Pulse Motion</div>
+              </div>
+            </div>
+
+            <div className="section-title" style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', marginTop: '16px' }}>
+              Fade Transitions
             </div>
             <div className="preset-grid">
               <div className="preset-card" onClick={() => onApplyEffectPreset('fadeIn')}>
-                <div className="preset-label">Fade In (1s)</div>
+                <div className="preset-label">Fade In (Start)</div>
               </div>
               <div className="preset-card" onClick={() => onApplyEffectPreset('fadeOut')}>
-                <div className="preset-label">Fade Out (1s)</div>
+                <div className="preset-label">Fade Out (End)</div>
+              </div>
+              <div className="preset-card" onClick={() => onApplyEffectPreset('fadeInOut')}>
+                <div className="preset-label">Fade In & Out</div>
               </div>
             </div>
           </>

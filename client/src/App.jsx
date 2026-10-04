@@ -16,7 +16,8 @@ import {
   parseAiCommand,
   requestAiPlan,
   fetchAiSettings,
-  saveProjectApi 
+  saveProjectApi,
+  fetchSfxApi
 } from './utils/api';
 import { Sliders, Sparkles } from 'lucide-react';
 
@@ -30,6 +31,7 @@ export default function App() {
 
   // Media Library
   const [mediaFiles, setMediaFiles] = useState([]);
+  const [sfxList, setSfxList] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
   // Timeline Tracks
@@ -76,6 +78,12 @@ export default function App() {
     fetchAiSettings().then(data => {
       if (data?.provider) {
         setActiveAiProvider(data.provider);
+      }
+    }).catch(() => {});
+
+    fetchSfxApi().then(items => {
+      if (items && items.length > 0) {
+        setSfxList(items);
       }
     }).catch(() => {});
 
@@ -234,7 +242,7 @@ export default function App() {
   };
 
   // 4. Add Text Overlay
-  const handleAddTextOverlay = (text = 'My Title', position = 'bottom', fontSize = 36) => {
+  const handleAddTextOverlay = (text = 'My Title', position = 'bottom', fontSize = 36, animation = 'none') => {
     saveSnapshot();
     const newText = {
       id: `text_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -242,11 +250,86 @@ export default function App() {
       position,
       fontSize,
       color: '#ffffff',
+      animation,
+      background: true,
       startTime: currentTime,
-      endTime: Math.min(totalDuration, currentTime + 5) || 5
+      endTime: Math.min(totalDuration, currentTime + 5) || (currentTime + 5)
     };
     setTextOverlays(prev => [...prev, newText]);
     setSelectedClipId(newText.id);
+  };
+
+  // 4.5 Add Sound Effect (SFX) to Timeline
+  const handleAddSfxToTimeline = (sfx) => {
+    saveSnapshot();
+    const newAudio = {
+      id: `sfx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: sfx.name,
+      url: sfx.url,
+      type: 'sfx',
+      trimStart: 0,
+      trimEnd: sfx.duration || 1.0,
+      duration: sfx.duration || 1.0,
+      timelineStart: currentTime,
+      volume: 1.0
+    };
+    setAudioClips(prev => [...prev, newAudio]);
+    setSelectedClipId(newAudio.id);
+  };
+
+  // 4.6 Duplicate Clip / Item (Ctrl+D)
+  const handleDuplicateClip = (clipId) => {
+    if (!clipId) return;
+
+    // 1. Check video clips
+    const video = videoClips.find(c => c.id === clipId);
+    if (video) {
+      saveSnapshot();
+      const clipDur = (video.trimEnd - video.trimStart) / (video.speed || 1);
+      const newClip = {
+        ...video,
+        id: `clip_${Date.now()}_dup`,
+        name: `${video.name} (Copy)`,
+        timelineStart: Math.round(((video.timelineStart || 0) + clipDur) * 100) / 100
+      };
+      setVideoClips(prev => [...prev, newClip]);
+      setSelectedClipId(newClip.id);
+      return;
+    }
+
+    // 2. Check audio clips
+    const audio = audioClips.find(a => a.id === clipId);
+    if (audio) {
+      saveSnapshot();
+      const dur = audio.trimEnd - audio.trimStart;
+      const newAudio = {
+        ...audio,
+        id: `audio_${Date.now()}_dup`,
+        name: `${audio.name} (Copy)`,
+        timelineStart: Math.round(((audio.timelineStart || 0) + dur) * 100) / 100
+      };
+      setAudioClips(prev => [...prev, newAudio]);
+      setSelectedClipId(newAudio.id);
+      return;
+    }
+
+    // 3. Check text overlays
+    const text = textOverlays.find(t => t.id === clipId);
+    if (text) {
+      saveSnapshot();
+      const dur = (text.endTime || 5) - (text.startTime || 0);
+      const newStart = text.endTime || 5;
+      const newText = {
+        ...text,
+        id: `txt_${Date.now()}_dup`,
+        text: `${text.text} (Copy)`,
+        startTime: newStart,
+        endTime: newStart + dur
+      };
+      setTextOverlays(prev => [...prev, newText]);
+      setSelectedClipId(newText.id);
+      return;
+    }
   };
 
   // 5. Update Clip Properties
@@ -347,6 +430,30 @@ export default function App() {
       handleUpdateClip(clip.id, { effects: { ...clip.effects, blur: 5 } });
     } else if (presetName === 'sharpen') {
       handleUpdateClip(clip.id, { effects: { ...clip.effects, sharpen: 1.5 } });
+    } else if (presetName === 'vignette') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, vignette: !clip.effects?.vignette } });
+    } else if (presetName === 'filmGrain') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, filmGrain: !clip.effects?.filmGrain } });
+    } else if (presetName === 'warm') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, warm: true, cool: false } });
+    } else if (presetName === 'cool') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, cool: true, warm: false } });
+    } else if (presetName === 'invert') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, invert: !clip.effects?.invert } });
+    } else if (presetName === 'kenBurns') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, animation: 'kenBurns' } });
+    } else if (presetName === 'zoomOut') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, animation: 'zoomOut' } });
+    } else if (presetName === 'panRight') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, animation: 'panRight' } });
+    } else if (presetName === 'pulse') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, animation: 'pulse' } });
+    } else if (presetName === 'fadeIn') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, fadeIn: !clip.effects?.fadeIn } });
+    } else if (presetName === 'fadeOut') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, fadeOut: !clip.effects?.fadeOut } });
+    } else if (presetName === 'fadeInOut') {
+      handleUpdateClip(clip.id, { effects: { ...clip.effects, fadeIn: true, fadeOut: true } });
     } else if (presetName === 'normal') {
       handleUpdateClip(clip.id, {
         effects: {
@@ -360,7 +467,15 @@ export default function App() {
           rotate: 0,
           flipH: false,
           flipV: false,
-          zoom: 1.0
+          zoom: 1.0,
+          animation: 'none',
+          fadeIn: false,
+          fadeOut: false,
+          vignette: false,
+          filmGrain: false,
+          warm: false,
+          cool: false,
+          invert: false
         }
       });
     }
@@ -537,10 +652,46 @@ export default function App() {
         handleAddTextOverlay(
           plan.textOverlay.text || 'Highlight',
           plan.textOverlay.position || 'bottom',
-          plan.textOverlay.fontSize || 40
+          plan.textOverlay.fontSize || 40,
+          plan.textOverlay.animation || 'pop'
         );
       } else if (plan.captions) {
-        handleAddTextOverlay('Captions / Subtitles', 'bottom', 32);
+        handleAddTextOverlay('Captions / Subtitles', 'bottom', 32, 'fade');
+      }
+
+      // Apply SFX if requested
+      if (plan.sfx) {
+        const targetName = (plan.sfx || '').toLowerCase();
+        const foundSfx = sfxList.find(s => 
+          s.id.toLowerCase().includes(targetName) || 
+          s.name.toLowerCase().includes(targetName)
+        ) || sfxList[0];
+        if (foundSfx) {
+          handleAddSfxToTimeline(foundSfx);
+        }
+      }
+
+      // Apply Animation if requested
+      if (plan.animation && activeClip) {
+        handleUpdateClip(activeClip.id, {
+          effects: { ...activeClip.effects, animation: plan.animation }
+        });
+      }
+
+      if (plan.fadeIn && activeClip) {
+        handleUpdateClip(activeClip.id, {
+          effects: { ...activeClip.effects, fadeIn: true }
+        });
+      }
+
+      if (plan.fadeOut && activeClip) {
+        handleUpdateClip(activeClip.id, {
+          effects: { ...activeClip.effects, fadeOut: true }
+        });
+      }
+
+      if (plan.duplicate && activeClip) {
+        handleDuplicateClip(activeClip.id);
       }
 
       setCommandHistory(prev => [
@@ -597,7 +748,11 @@ export default function App() {
         handleUpdateClip(activeClip.id, { speed: act.payload.speed });
       } else if (act.type === 'SET_EFFECT' && activeClip) {
         const { effect, value } = act.payload;
-        handleUpdateClip(activeClip.id, { effects: { ...activeClip.effects, [effect]: value } });
+        if (effect === 'fadeBoth') {
+          handleUpdateClip(activeClip.id, { effects: { ...activeClip.effects, fadeIn: true, fadeOut: true } });
+        } else {
+          handleUpdateClip(activeClip.id, { effects: { ...activeClip.effects, [effect]: value } });
+        }
       } else if (act.type === 'CLEAR_EFFECTS' && activeClip) {
         handleApplyEffectPreset('normal');
       } else if (act.type === 'MUTE_AUDIO' && activeClip) {
@@ -607,7 +762,19 @@ export default function App() {
       } else if (act.type === 'SPLIT_AT_PLAYHEAD') {
         handleSplitClip(currentTime);
       } else if (act.type === 'ADD_TEXT') {
-        handleAddTextOverlay(act.payload.text, act.payload.position || 'bottom', act.payload.fontSize || 40);
+        handleAddTextOverlay(act.payload.text, act.payload.position || 'bottom', act.payload.fontSize || 40, act.payload.animation || 'pop');
+      } else if (act.type === 'DUPLICATE_CLIP') {
+        handleDuplicateClip(selectedClipId || activeClip?.id);
+      } else if (act.type === 'ADD_SFX') {
+        const targetId = (act.payload?.sfxId || '').toLowerCase();
+        const targetName = (act.payload?.name || act.payload?.sound || '').toLowerCase();
+        const foundSfx = sfxList.find(s => 
+          (targetId && s.id.toLowerCase() === targetId) ||
+          (targetName && (s.id.toLowerCase().includes(targetName) || s.name.toLowerCase().includes(targetName)))
+        ) || sfxList[0];
+        if (foundSfx) {
+          handleAddSfxToTimeline(foundSfx);
+        }
       }
 
       setCommandHistory(prev => [
@@ -714,10 +881,12 @@ export default function App() {
             {/* Left Sidebar */}
             <Sidebar 
               mediaFiles={mediaFiles}
+              sfxList={sfxList}
               onUploadFile={handleUploadFile}
               isUploading={isUploading}
               onAddVideoToTimeline={handleAddVideoToTimeline}
               onAddAudioToTimeline={handleAddAudioToTimeline}
+              onAddSfxToTimeline={handleAddSfxToTimeline}
               onAddTextOverlay={handleAddTextOverlay}
               onApplyEffectPreset={handleApplyEffectPreset}
             />
@@ -749,6 +918,7 @@ export default function App() {
             selectedClipId={selectedClipId}
             setSelectedClipId={setSelectedClipId}
             onSplitClip={handleSplitClip}
+            onDuplicateClip={handleDuplicateClip}
             onDeleteClip={handleDeleteSelected}
             onUpdateClip={handleUpdateClip}
             onUpdateAudio={handleUpdateAudio}

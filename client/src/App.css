@@ -2480,3 +2480,113 @@
     transform: translate(-50%, 0) scale(1);
   }
 }
+
+/* ==========================================================
+   9. MOTION & VISUAL OVERLAYS (KEN BURNS, VIGNETTE, GRAIN)
+   ========================================================== */
+.preview-vignette-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.72) 100%);
+  z-index: 4;
+}
+
+.preview-grain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 0);
+  background-size: 4px 4px;
+  opacity: 0.25;
+  mix-blend-mode: overlay;
+  z-index: 5;
+  animation: filmFlicker 0.2s steps(2) infinite;
+}
+
+@keyframes filmFlicker {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(-1px, 1px); }
+  100% { transform: translate(1px, -1px); }
+}
+
+@keyframes kenBurnsZoom {
+  0% { transform: scale(1.0); }
+  100% { transform: scale(1.22); }
+}
+
+@keyframes kenBurnsZoomOut {
+  0% { transform: scale(1.22); }
+  100% { transform: scale(1.0); }
+}
+
+@keyframes panRightSlow {
+  0% { transform: scale(1.12) translateX(-3%); }
+  100% { transform: scale(1.12) translateX(3%); }
+}
+
+@keyframes pulseMotion {
+  0%, 100% { transform: scale(1.0); }
+  50% { transform: scale(1.06); }
+}
+
+/* Text overlay animation classes */
+.text-anim-slide-up {
+  animation: textSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes textSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.text-anim-pop {
+  animation: textPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes textPop {
+  0% { opacity: 0; transform: scale(0.7); }
+  70% { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1.0); }
+}
+
+.text-anim-fade {
+  animation: fadeIn 0.6s ease forwards;
+}
+
+/* SFX list in Sidebar */
+.sfx-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 8px;
+}
+.sfx-item-card:hover {
+  background: var(--bg-hover);
+  border-color: rgba(37, 99, 235, 0.4);
+}
+.sfx-play-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  color: #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.sfx-play-btn:hover {
+  background: var(--lapis-500);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+

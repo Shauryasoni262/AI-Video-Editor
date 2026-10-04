@@ -168,6 +168,39 @@ export class ExportJob {
         vf += `,colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131`;
       }
 
+      if (fx.vignette) {
+        vf += `,vignette=PI/4`;
+      }
+
+      if (fx.warm) {
+        vf += `,colorbalance=rs=0.15:gs=0.05:bs=-0.15,eq=saturation=1.2`;
+      }
+
+      if (fx.cool || fx.cyberpunk) {
+        vf += `,colorbalance=rs=-0.1:gs=0.06:bs=0.25,eq=contrast=1.25:saturation=1.4`;
+      }
+
+      if (fx.invert) {
+        vf += `,negate`;
+      }
+
+      if (fx.filmGrain || fx.noise) {
+        vf += `,noise=alls=12:allf=t+u`;
+      }
+
+      if (fx.fadeIn) {
+        vf += `,fade=t=in:st=0:d=1`;
+      }
+
+      if (fx.fadeOut) {
+        const fadeOutStart = Math.max(0, clipDuration - 1);
+        vf += `,fade=t=out:st=${fadeOutStart}:d=1`;
+      }
+
+      if (fx.animation === 'kenBurns' || fx.animation === 'zoomIn') {
+        vf += `,zoompan=z='min(zoom+0.0015,1.25)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`;
+      }
+
       if (fx.blur && fx.blur > 0) {
         vf += `,gblur=sigma=${Math.min(20, fx.blur * 2)}`;
       }
@@ -216,6 +249,12 @@ export class ExportJob {
         }
         const clipVol = clip.muteOriginalAudio ? 0 : (clip.volume !== undefined ? clip.volume : 1);
         af += `,volume=${clipVol}`;
+        if (fx.fadeIn || fx.audioFadeIn) {
+          af += `,afade=t=in:ss=0:d=1`;
+        }
+        if (fx.fadeOut || fx.audioFadeOut) {
+          af += `,afade=t=out:st=${Math.max(0, clipDuration - 1)}:d=1`;
+        }
       } else {
         af = `aevalsrc=0:d=${clipDuration}:s=44100`;
       }
@@ -385,6 +424,16 @@ function hasAnyEffects(clip) {
     (fx.saturation && fx.saturation !== 1) ||
     fx.grayscale ||
     fx.sepia ||
+    fx.vignette ||
+    fx.warm ||
+    fx.cool ||
+    fx.cyberpunk ||
+    fx.invert ||
+    fx.filmGrain ||
+    fx.noise ||
+    fx.fadeIn ||
+    fx.fadeOut ||
+    fx.animation ||
     (fx.blur && fx.blur > 0) ||
     (fx.sharpen && fx.sharpen > 0) ||
     (fx.rotate && fx.rotate !== 0) ||

@@ -298,6 +298,207 @@ export function parseNaturalLanguageCommand(prompt, context = {}) {
     };
   }
 
+  // 17. Vignette Focus
+  if (p.includes('vignette') || p.includes('dark edges') || p.includes('lens falloff')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'vignette', value: true },
+        description: 'Apply cinematic lens vignette with darkened perimeter.',
+        plannedChanges: [
+          { label: 'Lens Vignette', from: 'Off', to: 'Cinematic Radial Falloff' }
+        ]
+      }
+    };
+  }
+
+  // 18. Warm Golden Hour
+  if (p.includes('warm') || p.includes('golden hour') || p.includes('sunset')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'warm', value: true },
+        description: 'Apply warm golden hour color balance with amber glow.',
+        plannedChanges: [
+          { label: 'Color Temperature', from: 'Neutral', to: 'Golden Hour Warm' }
+        ]
+      }
+    };
+  }
+
+  // 19. Cool Cyberpunk / Neon
+  if (p.includes('cyberpunk') || p.includes('neon') || p.includes('teal') || p.includes('cool look')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'cool', value: true },
+        description: 'Apply high-contrast cyberpunk neon teal & blue styling.',
+        plannedChanges: [
+          { label: 'Color Grade', from: 'Standard', to: 'Cyberpunk Neon Teal' }
+        ]
+      }
+    };
+  }
+
+  // 20. Invert / Negative / Thermal
+  if (p.includes('invert') || p.includes('negative') || p.includes('thermal') || p.includes('x-ray')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'invert', value: true },
+        description: 'Invert colors for a stylized negative/thermal effect.',
+        plannedChanges: [
+          { label: 'Color Mode', from: 'Normal', to: 'Inverted Negative' }
+        ]
+      }
+    };
+  }
+
+  // 21. Film Grain / Noise
+  if (p.includes('grain') || p.includes('film grain') || p.includes('noise') || p.includes('analog')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'filmGrain', value: true },
+        description: 'Apply 35mm cinema film grain texture.',
+        plannedChanges: [
+          { label: 'Texture', from: 'Clean Digital', to: '35mm Film Grain' }
+        ]
+      }
+    };
+  }
+
+  // 22. Fade In & Fade Out Transitions
+  if (p.includes('fade in and fade out') || p.includes('fade in out') || p.includes('fades')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'fadeBoth', value: true },
+        description: 'Add 1s visual & audio fade in at start and fade out at end.',
+        plannedChanges: [
+          { label: 'Intro Fade', from: 'Cut', to: '1.0s Fade from Black' },
+          { label: 'Outro Fade', from: 'Cut', to: '1.0s Fade to Black' }
+        ]
+      }
+    };
+  }
+  if (p.includes('fade in')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'fadeIn', value: true },
+        description: 'Add 1.0s smooth fade-in from black at clip start.',
+        plannedChanges: [
+          { label: 'Intro Transition', from: 'Direct Cut', to: '1.0s Fade In' }
+        ]
+      }
+    };
+  }
+  if (p.includes('fade out')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'fadeOut', value: true },
+        description: 'Add 1.0s smooth fade-out to black at clip end.',
+        plannedChanges: [
+          { label: 'Outro Transition', from: 'Direct Cut', to: '1.0s Fade Out' }
+        ]
+      }
+    };
+  }
+
+  // 23. Ken Burns Motion / Slow Zoom Animation
+  if (p.includes('ken burns') || p.includes('slow zoom') || p.includes('zoom in animation') || p.includes('pan and zoom')) {
+    return {
+      success: true,
+      action: {
+        type: 'SET_EFFECT',
+        payload: { effect: 'animation', value: 'kenBurns' },
+        description: 'Apply cinematic Ken Burns slow-zoom animation across clip.',
+        plannedChanges: [
+          { label: 'Motion', from: 'Static', to: 'Ken Burns Zoom (1.0x -> 1.25x)' }
+        ]
+      }
+    };
+  }
+
+  // 24. Duplicate Clip
+  if (p.includes('duplicate') || p.includes('clone clip') || p.includes('copy clip')) {
+    return {
+      success: true,
+      action: {
+        type: 'DUPLICATE_CLIP',
+        payload: {},
+        description: 'Duplicate active clip and append it on the timeline.',
+        plannedChanges: [
+          { label: 'Timeline Action', from: 'Single Clip', to: 'Duplicated Copy' }
+        ]
+      }
+    };
+  }
+
+  // 25. Add Sound Effect (SFX)
+  if (p.includes('whoosh') || p.includes('swoop')) {
+    return {
+      success: true,
+      action: {
+        type: 'ADD_SFX',
+        payload: { sfxId: 'sfx_whoosh', name: 'Whoosh Swoop', file: 'whoosh_transition.mp3' },
+        description: 'Add Whoosh transition sound effect to audio track.',
+        plannedChanges: [
+          { label: 'SFX Track', from: '-', to: 'Whoosh Swoop (0.5s)' }
+        ]
+      }
+    };
+  }
+  if (p.includes('boom') || p.includes('cinematic hit') || p.includes('impact sound')) {
+    return {
+      success: true,
+      action: {
+        type: 'ADD_SFX',
+        payload: { sfxId: 'sfx_boom', name: 'Cinematic Hit', file: 'cinematic_boom.mp3' },
+        description: 'Add Cinematic Boom bass drop impact to audio track.',
+        plannedChanges: [
+          { label: 'SFX Track', from: '-', to: 'Cinematic Boom (1.4s)' }
+        ]
+      }
+    };
+  }
+  if (p.includes('camera') || p.includes('shutter') || p.includes('click')) {
+    return {
+      success: true,
+      action: {
+        type: 'ADD_SFX',
+        payload: { sfxId: 'sfx_camera', name: 'Camera Shutter', file: 'camera_click.mp3' },
+        description: 'Add Camera Shutter snapshot sound effect to audio track.',
+        plannedChanges: [
+          { label: 'SFX Track', from: '-', to: 'Camera Click (0.18s)' }
+        ]
+      }
+    };
+  }
+  if (p.includes('bell') || p.includes('ding') || p.includes('chime')) {
+    return {
+      success: true,
+      action: {
+        type: 'ADD_SFX',
+        payload: { sfxId: 'sfx_bell', name: 'Bell Chime', file: 'bell_notification.mp3' },
+        description: 'Add Bell Chime notification sound to audio track.',
+        plannedChanges: [
+          { label: 'SFX Track', from: '-', to: 'Bell Chime (0.8s)' }
+        ]
+      }
+    };
+  }
+
   // 16. Reset effects
   if (p.includes('reset') || p.includes('clear effect') || p.includes('normal')) {
     return {
@@ -318,13 +519,13 @@ export function parseNaturalLanguageCommand(prompt, context = {}) {
     error: `Command "${prompt}" not recognized. Try one of the suggested actions below.`,
     suggestions: [
       'Remove the first 5 seconds',
-      'Make it brighter',
-      'Increase speed to 1.25x',
-      'Remove original audio',
-      'Add text Epic Moment',
-      'Remove the boring parts',
-      'Make a clean short reel from this video',
-      'Make this 10 seconds'
+      'Add cinematic vignette and warm look',
+      'Apply Ken Burns slow zoom animation',
+      'Fade in and fade out this clip',
+      'Make it cyberpunk neon teal',
+      'Add Whoosh sound effect',
+      'Duplicate this clip',
+      'Make a clean short reel from this video'
     ]
   };
 }

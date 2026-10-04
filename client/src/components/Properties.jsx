@@ -88,6 +88,30 @@ export default function Properties({
               style={{ border: 'none', background: 'transparent', cursor: 'pointer', width: '28px', height: '28px' }}
             />
           </div>
+
+          <div className="property-row">
+            <span className="property-label">Animation</span>
+            <select 
+              style={{ background: 'var(--bg-panel-secondary)', border: '1px solid var(--border-subtle)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', color: 'var(--text-main)' }}
+              value={selectedText.animation || 'none'}
+              onChange={(e) => onUpdateText(selectedText.id, { animation: e.target.value })}
+            >
+              <option value="none">None (Static)</option>
+              <option value="fade">Fade In</option>
+              <option value="slide-up">Slide Up</option>
+              <option value="pop">Pop & Bounce</option>
+            </select>
+          </div>
+
+          <div className="property-row">
+            <span className="property-label">Backdrop Pill</span>
+            <input 
+              type="checkbox" 
+              checked={!!selectedText.background}
+              onChange={(e) => onUpdateText(selectedText.id, { background: e.target.checked })}
+              style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+            />
+          </div>
         </div>
       </div>
     );
@@ -121,7 +145,15 @@ export default function Properties({
         rotate: 0,
         flipH: false,
         flipV: false,
-        zoom: 1.0
+        zoom: 1.0,
+        animation: 'none',
+        fadeIn: false,
+        fadeOut: false,
+        vignette: false,
+        filmGrain: false,
+        warm: false,
+        cool: false,
+        invert: false
       }
     });
   };
@@ -182,7 +214,50 @@ export default function Properties({
         </div>
       )}
 
-      {/* 2. Audio Settings (Videos only) */}
+      {/* 2. Motion & Transitions */}
+      <div className="property-group">
+        <div className="property-group-title">
+          <span>Motion & Transitions</span>
+          <Sparkles size={14} style={{ color: 'var(--primary-light)' }} />
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">Motion Animation</span>
+          <select 
+            style={{ background: 'var(--bg-panel-secondary)', border: '1px solid var(--border-subtle)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', color: 'var(--text-main)', maxWidth: '140px' }}
+            value={effects.animation || 'none'}
+            onChange={(e) => updateEffect('animation', e.target.value)}
+          >
+            <option value="none">None (Static)</option>
+            <option value="kenBurns">Ken Burns (Zoom In)</option>
+            <option value="zoomOut">Ken Burns (Zoom Out)</option>
+            <option value="panRight">Slow Pan Right</option>
+            <option value="pulse">Pulse Motion</option>
+          </select>
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">Fade In Transition</span>
+          <input 
+            type="checkbox" 
+            checked={!!effects.fadeIn}
+            onChange={(e) => updateEffect('fadeIn', e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+          />
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">Fade Out Transition</span>
+          <input 
+            type="checkbox" 
+            checked={!!effects.fadeOut}
+            onChange={(e) => updateEffect('fadeOut', e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+          />
+        </div>
+      </div>
+
+      {/* 3. Audio Settings (Videos only) */}
       {!isImageClip && (
         <div className="property-group">
           <div className="property-group-title">
@@ -217,7 +292,7 @@ export default function Properties({
         </div>
       )}
 
-      {/* 3. Transform & Geometry */}
+      {/* 4. Transform & Geometry */}
       <div className="property-group">
         <div className="property-group-title">
           <span>Transform & Geometry</span>
@@ -265,7 +340,7 @@ export default function Properties({
         </div>
       </div>
 
-      {/* 4. Color Grading */}
+      {/* 5. Color Grading */}
       <div className="property-group">
         <div className="property-group-title">
           <span>Color & Exposure</span>
@@ -314,10 +389,67 @@ export default function Properties({
         </div>
       </div>
 
-      {/* 5. Filters & Look */}
+      {/* 6. Stylized Cinema Looks */}
       <div className="property-group">
         <div className="property-group-title">
-          <span>Filters & Focus</span>
+          <span>Stylized Looks</span>
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">Vignette (Shadow Edge)</span>
+          <input 
+            type="checkbox" 
+            checked={!!effects.vignette}
+            onChange={(e) => updateEffect('vignette', e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+          />
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">35mm Film Grain</span>
+          <input 
+            type="checkbox" 
+            checked={!!effects.filmGrain}
+            onChange={(e) => updateEffect('filmGrain', e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+          />
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">Warm Golden Hour</span>
+          <input 
+            type="checkbox" 
+            checked={!!effects.warm}
+            onChange={(e) => updateEffect('warm', e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+          />
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">Cyberpunk Neon Teal</span>
+          <input 
+            type="checkbox" 
+            checked={!!effects.cool}
+            onChange={(e) => updateEffect('cool', e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+          />
+        </div>
+
+        <div className="property-row">
+          <span className="property-label">Invert / Thermal</span>
+          <input 
+            type="checkbox" 
+            checked={!!effects.invert}
+            onChange={(e) => updateEffect('invert', e.target.checked)}
+            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+          />
+        </div>
+      </div>
+
+      {/* 7. Classic Filters */}
+      <div className="property-group">
+        <div className="property-group-title">
+          <span>Classic Filters</span>
         </div>
 
         <div className="property-row">

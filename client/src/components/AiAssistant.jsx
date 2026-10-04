@@ -81,6 +81,8 @@ const ACTION_LABELS = {
   SPLIT_AT_PLAYHEAD: 'Razor Split',
   ADD_TEXT: 'Text Title',
   ADD_AUDIO_TRACK: 'Soundtrack',
+  ADD_SFX: 'Sound Effect (SFX)',
+  DUPLICATE_CLIP: 'Duplicate Clip',
   REMOVE_BORING_PARTS: 'Smart Jump-Cut',
   CREATE_REEL: '10s Social Reel'
 };
@@ -109,9 +111,10 @@ export default function AiAssistant({
   const categories = [
     { id: 'all', label: 'All', icon: Sparkles },
     { id: 'trim', label: 'Trim & Cut', icon: Scissors },
-    { id: 'color', label: 'Color & Look', icon: Palette },
-    { id: 'speed_audio', label: 'Speed & Audio', icon: Volume2 },
-    { id: 'reels', label: 'Social Reels', icon: Video }
+    { id: 'motion', label: 'Motion & FX', icon: Wand2 },
+    { id: 'color', label: 'Color & Looks', icon: Palette },
+    { id: 'speed_audio', label: 'Audio & SFX', icon: Volume2 },
+    { id: 'reels', label: 'Social & Titles', icon: Video }
   ];
 
   const commandsByCategory = {
@@ -119,24 +122,36 @@ export default function AiAssistant({
       { text: 'Remove the first 5 seconds', label: 'Trim first 5s', icon: Scissors, badge: '5s cut' },
       { text: 'Make this 30 seconds', label: 'Make 30s long', icon: Clock, badge: '30s duration' },
       { text: 'Remove boring parts and keep the best moments', label: 'Remove boring parts', icon: Wand2, badge: 'smart-cut' },
-      { text: 'Split at playhead', label: 'Split at playhead', icon: Scissors, badge: 'razor' }
+      { text: 'Split at playhead', label: 'Split at playhead', icon: Scissors, badge: 'razor' },
+      { text: 'Duplicate this clip', label: 'Duplicate Clip (Ctrl+D)', icon: Copy, badge: 'duplicate' }
+    ],
+    motion: [
+      { text: 'Add Ken Burns slow zoom in effect', label: 'Ken Burns Zoom In', icon: Wand2, badge: 'zoom' },
+      { text: 'Add slow pan right motion', label: 'Slow Pan Right', icon: Wand2, badge: 'pan' },
+      { text: 'Fade in from black and fade out at end', label: 'Fade In & Out', icon: Layers, badge: 'fade' },
+      { text: 'Add pulse motion animation', label: 'Pulse Motion', icon: Wand2, badge: 'pulse' }
     ],
     color: [
+      { text: 'Add cinematic vignette shadow around edges', label: 'Add Vignette', icon: Palette, badge: 'vignette' },
+      { text: 'Apply warm golden hour sun glow', label: 'Golden Hour Look', icon: Palette, badge: 'warm' },
+      { text: 'Give it a cyberpunk neon teal look', label: 'Cyberpunk Neon', icon: Palette, badge: 'cyberpunk' },
+      { text: 'Add 35mm vintage film grain texture', label: '35mm Film Grain', icon: Palette, badge: 'film grain' },
       { text: 'Make this brighter', label: 'Make this brighter', icon: Palette, badge: '+15% light' },
       { text: 'Boost vibrant saturation', label: 'Vibrant pop', icon: Palette, badge: 'saturated' },
-      { text: 'Add captions and make it slightly cinematic', label: 'Make cinematic', icon: Palette, badge: 'cinematic' },
       { text: 'Make it black and white', label: 'Black & white', icon: Palette, badge: 'monochrome' }
     ],
     speed_audio: [
+      { text: 'Add whoosh transition sound effect', label: 'Whoosh SFX', icon: Volume2, badge: 'sfx' },
+      { text: 'Add cinematic boom impact sound', label: 'Cinematic Boom SFX', icon: Volume2, badge: 'sfx' },
+      { text: 'Add camera shutter click sound', label: 'Camera Click SFX', icon: Volume2, badge: 'sfx' },
       { text: 'Increase speed to 1.25x', label: 'Speed 1.25x', icon: Wand2, badge: 'faster' },
       { text: 'Slow down to 0.5x', label: 'Slow-motion 0.5x', icon: Wand2, badge: 'slow-mo' },
-      { text: 'Remove original audio', label: 'Mute video audio', icon: Volume2, badge: 'mute' },
-      { text: 'Add this song', label: 'Add background music', icon: Volume2, badge: 'soundtrack' }
+      { text: 'Remove original audio', label: 'Mute video audio', icon: Volume2, badge: 'mute' }
     ],
     reels: [
-      { text: 'Make a clean Instagram reel from this video', label: 'Make Instagram Reel', icon: Video, badge: 'reel' },
-      { text: 'Add text Epic Moment', label: 'Add title overlay', icon: Layers, badge: 'title' },
-      { text: 'Add captions', label: 'Add subtitles', icon: Layers, badge: 'subtitles' },
+      { text: 'Make a clean Instagram reel 9:16 from this video', label: 'Make 9:16 Reel', icon: Video, badge: '9:16 reel' },
+      { text: 'Add animated title Epic Moment', label: 'Pop Title Overlay', icon: Layers, badge: 'title' },
+      { text: 'Add captions and subtitles', label: 'Add Subtitles', icon: Layers, badge: 'subtitles' },
       { text: 'Mirror video horizontally', label: 'Mirror / Flip', icon: Video, badge: 'flip' }
     ]
   };

@@ -161,6 +161,34 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// 1.8 Built-in SFX Library
+app.get('/api/sfx', (req, res) => {
+  const sfxDir = path.join(storageDir, 'sfx');
+  if (!fs.existsSync(sfxDir)) return res.json([]);
+  
+  const sfxMeta = [
+    { id: 'sfx_whoosh', name: 'Whoosh Swoop', file: 'whoosh_transition.mp3', category: 'Transition', duration: 0.5 },
+    { id: 'sfx_camera', name: 'Camera Shutter', file: 'camera_click.mp3', category: 'Action', duration: 0.18 },
+    { id: 'sfx_boom', name: 'Cinematic Hit', file: 'cinematic_boom.mp3', category: 'Impact', duration: 1.4 },
+    { id: 'sfx_bell', name: 'Bell Chime', file: 'bell_notification.mp3', category: 'Notify', duration: 0.8 },
+    { id: 'sfx_pop', name: 'Bubble Pop', file: 'pop_bubble.mp3', category: 'UI', duration: 0.14 },
+    { id: 'sfx_laser', name: 'Retro Laser', file: 'retro_laser.mp3', category: 'Sci-Fi', duration: 0.25 }
+  ];
+
+  const list = sfxMeta.map(s => ({
+    id: s.id,
+    originalName: s.name,
+    fileName: s.file,
+    filePath: path.join(sfxDir, s.file),
+    type: 'audio',
+    category: s.category,
+    url: `/media/sfx/${s.file}`,
+    metadata: { duration: s.duration, format: 'mp3' }
+  }));
+
+  res.json(list);
+});
+
 // 3. High-Performance Range Streaming for Preview & Static Media
 app.use('/media', express.static(storageDir));
 
@@ -170,7 +198,8 @@ app.get('/media/:folder/*', (req, res) => {
   const safeFolders = {
     uploads: uploadsDir,
     exports: exportsDir,
-    thumbnails: thumbnailsDir
+    thumbnails: thumbnailsDir,
+    sfx: path.join(storageDir, 'sfx')
   };
 
   const targetDir = safeFolders[folder];

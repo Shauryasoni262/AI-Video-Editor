@@ -170,4 +170,19 @@ export async function loadProjectApi(id) {
   return await res.json();
 }
 
+export async function fetchSfxApi() {
+  try {
+    const res = await fetch(`${API_BASE}/api/sfx`);
+    if (!res.ok) return [];
+    const list = await res.json();
+    return list.map(item => ({
+      ...item,
+      url: item.url.startsWith('/') ? `${API_BASE}${item.url}` : item.url
+    }));
+  } catch (e) {
+    console.warn('Failed listing sfx:', e);
+    return [];
+  }
+}
+
 export { API_BASE };

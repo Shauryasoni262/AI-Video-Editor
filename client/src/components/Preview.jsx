@@ -138,6 +138,10 @@ export default function Preview({
     if (fx.blur && fx.blur > 0) filters.push(`blur(${fx.blur}px)`);
     if (fx.grayscale) filters.push('grayscale(100%)');
     if (fx.sepia) filters.push('sepia(100%)');
+    if (fx.warm) filters.push('sepia(25%) saturate(140%)');
+    if (fx.cool || fx.cyberpunk) filters.push('hue-rotate(185deg) saturate(145%) contrast(120%)');
+    if (fx.invert) filters.push('invert(100%)');
+    if (fx.sharpen) filters.push('contrast(120%)');
 
     const transforms = [];
     if (fx.rotate) transforms.push(`rotate(${fx.rotate}deg)`);
@@ -145,9 +149,40 @@ export default function Preview({
     if (fx.flipV) transforms.push('scaleY(-1)');
     if (fx.zoom && fx.zoom > 1) transforms.push(`scale(${fx.zoom})`);
 
+    // Animation styles
+    let animation = undefined;
+    if (fx.animation === 'kenBurns' || fx.animation === 'zoomIn') {
+      animation = 'kenBurnsZoom 8s ease-in-out infinite alternate';
+    } else if (fx.animation === 'zoomOut') {
+      animation = 'kenBurnsZoomOut 8s ease-in-out infinite alternate';
+    } else if (fx.animation === 'panRight') {
+      animation = 'panRightSlow 8s ease-in-out infinite alternate';
+    } else if (fx.animation === 'pulse') {
+      animation = 'pulseMotion 2s ease-in-out infinite';
+    }
+
+    // Dynamic Fade opacity
+    let opacity = 1;
+    const clipStart = activeClip.timelineStart || 0;
+    const clipDur = (activeClip.trimEnd - activeClip.trimStart) / (activeClip.speed || 1);
+    const clipEnd = clipStart + clipDur;
+
+    if (fx.fadeIn || fx.fadeBoth) {
+      if (currentTime >= clipStart && currentTime < clipStart + 1.0) {
+        opacity = Math.max(0, Math.min(1, (currentTime - clipStart) / 1.0));
+      }
+    }
+    if (fx.fadeOut || fx.fadeBoth) {
+      if (currentTime > clipEnd - 1.0 && currentTime <= clipEnd) {
+        opacity = Math.min(opacity, Math.max(0, (clipEnd - currentTime) / 1.0));
+      }
+    }
+
     return {
       filter: filters.join(' ') || 'none',
-      transform: transforms.join(' ') || 'none'
+      transform: transforms.join(' ') || 'none',
+      animation,
+      opacity
     };
   };
 
@@ -254,14 +289,31 @@ export default function Preview({
                 />
               )}
 
+              {/* Vignette Overlay */}
+              {activeClip.effects?.vignette && (
+                <div className="preview-vignette-overlay" />
+              )}
+
+              {/* Film Grain Texture Overlay */}
+              {(activeClip.effects?.filmGrain || activeClip.effects?.noise) && (
+                <div className="preview-grain-overlay" />
+              )}
+
               {/* Text Overlays rendering */}
               {activeTexts.map(txt => (
                 <div 
                   key={txt.id} 
-                  className={`preview-text-overlay ${txt.position || 'bottom'}`}
+                  className={`preview-text-overlay ${txt.position || 'bottom'} ${txt.animation ? `text-anim-${txt.animation}` : ''}`}
                   style={{
                     fontSize: `${txt.fontSize || (aspectRatio === '9:16' ? 26 : 36)}px`,
-                    color: txt.color || '#ffffff'
+                    color: txt.color || '#ffffff',
+                    ...(txt.background ? {
+                      background: 'rgba(0, 0, 0, 0.65)',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      width: 'auto',
+                      display: 'inline-block'
+                    } : {})
                   }}
                 >
                   {txt.text}
