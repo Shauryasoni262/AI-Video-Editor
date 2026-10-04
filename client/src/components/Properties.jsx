@@ -8,9 +8,11 @@ import {
   VolumeX, 
   ZoomIn, 
   Gauge, 
-  Sparkles,
-  Type,
-  Trash2
+  Sparkles, 
+  Type, 
+  Trash2,
+  Clock,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function Properties({
@@ -124,61 +126,96 @@ export default function Properties({
     });
   };
 
+  const isImageClip = selectedClip.mediaType === 'image' || selectedClip.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(selectedClip.url || '');
+
   return (
     <div className="inspector-content">
-      {/* 1. Playback Speed */}
-      <div className="property-group">
-        <div className="property-group-title">
-          <span>Speed Control</span>
-          <Gauge size={14} />
+      {/* 1. Image Duration OR Video Playback Speed */}
+      {isImageClip ? (
+        <div className="property-group">
+          <div className="property-group-title">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <ImageIcon size={14} style={{ color: '#ec4899' }} />
+              <span>Photo Duration</span>
+            </span>
+            <Clock size={14} style={{ color: '#ec4899' }} />
+          </div>
+          <div className="property-row">
+            <span className="property-label">Display Length</span>
+            <input 
+              type="range" 
+              className="property-slider" 
+              min="1.0" 
+              max="30.0" 
+              step="0.5"
+              value={Math.round((selectedClip.trimEnd - selectedClip.trimStart) * 10) / 10}
+              onChange={(e) => {
+                const dur = parseFloat(e.target.value);
+                onUpdateClip(selectedClip.id, {
+                  trimEnd: selectedClip.trimStart + dur,
+                  duration: Math.max(selectedClip.duration || 5, selectedClip.trimStart + dur)
+                });
+              }}
+            />
+            <span className="property-value">{(selectedClip.trimEnd - selectedClip.trimStart).toFixed(1)}s</span>
+          </div>
         </div>
-        <div className="property-row">
-          <span className="property-label">Playback Rate</span>
-          <input 
-            type="range" 
-            className="property-slider" 
-            min="0.5" 
-            max="2.0" 
-            step="0.25"
-            value={selectedClip.speed || 1.0}
-            onChange={(e) => onUpdateClip(selectedClip.id, { speed: parseFloat(e.target.value) })}
-          />
-          <span className="property-value">{selectedClip.speed || 1.0}x</span>
+      ) : (
+        <div className="property-group">
+          <div className="property-group-title">
+            <span>Speed Control</span>
+            <Gauge size={14} />
+          </div>
+          <div className="property-row">
+            <span className="property-label">Playback Rate</span>
+            <input 
+              type="range" 
+              className="property-slider" 
+              min="0.5" 
+              max="2.0" 
+              step="0.25"
+              value={selectedClip.speed || 1.0}
+              onChange={(e) => onUpdateClip(selectedClip.id, { speed: parseFloat(e.target.value) })}
+            />
+            <span className="property-value">{selectedClip.speed || 1.0}x</span>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 2. Audio Settings */}
-      <div className="property-group">
-        <div className="property-group-title">
-          <span>Audio Controls</span>
-          <Volume2 size={14} />
-        </div>
+      {/* 2. Audio Settings (Videos only) */}
+      {!isImageClip && (
+        <div className="property-group">
+          <div className="property-group-title">
+            <span>Audio Controls</span>
+            <Volume2 size={14} />
+          </div>
 
-        <div className="property-row">
-          <span className="property-label">Mute Video Audio</span>
-          <input 
-            type="checkbox" 
-            checked={!!selectedClip.muteOriginalAudio}
-            onChange={(e) => onUpdateClip(selectedClip.id, { muteOriginalAudio: e.target.checked })}
-            style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
-          />
-        </div>
+          <div className="property-row">
+            <span className="property-label">Mute Video Audio</span>
+            <input 
+              type="checkbox" 
+              checked={!!selectedClip.muteOriginalAudio}
+              onChange={(e) => onUpdateClip(selectedClip.id, { muteOriginalAudio: e.target.checked })}
+              style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+            />
+          </div>
 
-        <div className="property-row">
-          <span className="property-label">Clip Volume</span>
-          <input 
-            type="range" 
-            className="property-slider" 
-            min="0" 
-            max="2" 
-            step="0.05"
-            disabled={selectedClip.muteOriginalAudio}
-            value={selectedClip.volume !== undefined ? selectedClip.volume : 1.0}
-            onChange={(e) => onUpdateClip(selectedClip.id, { volume: parseFloat(e.target.value) })}
-          />
-          <span className="property-value">{Math.round((selectedClip.volume !== undefined ? selectedClip.volume : 1) * 100)}%</span>
+          <div className="property-row">
+            <span className="property-label">Clip Volume</span>
+            <input 
+              type="range" 
+              className="property-slider" 
+              min="0" 
+              max="2" 
+              step="0.05"
+              disabled={selectedClip.muteOriginalAudio}
+              value={selectedClip.volume !== undefined ? selectedClip.volume : 1.0}
+              onChange={(e) => onUpdateClip(selectedClip.id, { volume: parseFloat(e.target.value) })}
+            />
+            <span className="property-value">{Math.round((selectedClip.volume !== undefined ? selectedClip.volume : 1) * 100)}%</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 3. Transform & Geometry */}
       <div className="property-group">

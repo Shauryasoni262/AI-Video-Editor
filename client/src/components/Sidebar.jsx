@@ -10,7 +10,8 @@ import {
   Clock, 
   FileVideo, 
   FileAudio,
-  Sparkles
+  Sparkles,
+  Image as ImageIcon
 } from 'lucide-react';
 import { formatDuration, formatFileSize } from '../utils/timeUtils';
 
@@ -24,7 +25,9 @@ export default function Sidebar({
   onApplyEffectPreset
 }) {
   const [activeTab, setActiveTab] = useState('media');
+  const [mediaFilter, setMediaFilter] = useState('all'); // 'all' | 'videos' | 'images'
   const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -45,6 +48,15 @@ export default function Sidebar({
 
   const videoFiles = mediaFiles.filter(m => m.type === 'video');
   const audioFiles = mediaFiles.filter(m => m.type === 'audio');
+  const imageFiles = mediaFiles.filter(m => m.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(m.originalName || m.url));
+
+  const visualFiles = mediaFiles.filter(m => {
+    const isImg = m.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(m.originalName || m.url);
+    const isVid = m.type === 'video';
+    if (mediaFilter === 'videos') return isVid;
+    if (mediaFilter === 'images') return isImg;
+    return isVid || isImg;
+  });
 
   return (
     <aside className="sidebar-container">
@@ -53,10 +65,18 @@ export default function Sidebar({
         <button 
           className={`sidebar-tab-btn ${activeTab === 'media' ? 'active' : ''}`}
           onClick={() => setActiveTab('media')}
-          title="Video Media"
+          title="All Media"
         >
           <Film size={17} />
           <span>Media</span>
+        </button>
+        <button 
+          className={`sidebar-tab-btn ${activeTab === 'images' ? 'active' : ''}`}
+          onClick={() => setActiveTab('images')}
+          title="Photos & Graphics"
+        >
+          <ImageIcon size={17} />
+          <span>Images</span>
         </button>
         <button 
           className={`sidebar-tab-btn ${activeTab === 'audio' ? 'active' : ''}`}
@@ -94,7 +114,7 @@ export default function Sidebar({
 
       {/* Tab Content */}
       <div className="sidebar-content">
-        {/* ================= MEDIA TAB ================= */}
+        {/* ================= MEDIA TAB (VIDEOS & IMAGES) ================= */}
         {activeTab === 'media' && (
           <>
             <div 
@@ -108,25 +128,130 @@ export default function Sidebar({
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleFileInput} 
-                accept="video/*,audio/*,.mp4,.mov,.mkv,.webm,.avi" 
+                accept="video/*,audio/*,image/*,.mp4,.mov,.mkv,.webm,.avi,.jpg,.jpeg,.png,.webp,.gif,.bmp" 
                 multiple 
                 style={{ display: 'none' }} 
               />
               <Upload className="dropzone-icon" />
               <div className="dropzone-title">
-                {isUploading ? 'Importing media...' : 'Import Videos & Audio'}
+                {isUploading ? 'Importing media...' : 'Import Videos & Images'}
               </div>
               <div className="dropzone-hint">
-                Drag & drop or click (MP4, MOV, MKV, WebM)
+                Drag & drop or click (MP4, MOV, PNG, JPG, WebM)
+              </div>
+            </div>
+
+            {/* Filter pills: All, Videos, Images */}
+            <div className="media-filter-bar">
+              <button 
+                type="button" 
+                className={`filter-pill ${mediaFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setMediaFilter('all')}
+              >
+                All ({videoFiles.length + imageFiles.length})
+              </button>
+              <button 
+                type="button" 
+                className={`filter-pill ${mediaFilter === 'videos' ? 'active' : ''}`}
+                onClick={() => setMediaFilter('videos')}
+              >
+                Videos ({videoFiles.length})
+              </button>
+              <button 
+                type="button" 
+                className={`filter-pill ${mediaFilter === 'images' ? 'active' : ''}`}
+                onClick={() => setMediaFilter('images')}
+              >
+                Images ({imageFiles.length})
+              </button>
+            </div>
+
+            <div className="section-title" style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+              Project Media ({visualFiles.length})
+            </div>
+
+            <div className="media-list">
+              {visualFiles.map(media => {
+                const isImg = media.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(media.originalName || media.url);
+                return (
+                  <div 
+                    key={media.id} 
+                    className="media-card"
+                    onClick={() => onAddVideoToTimeline(media)}
+                    title={`Click to add ${media.originalName} to timeline`}
+                  >
+                    <div className="media-card-thumb">
+                      {media.metadata?.thumbnailUrl || isImg ? (
+                        <img 
+                          src={media.metadata?.thumbnailUrl || media.url} 
+                          alt={media.originalName} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                      ) : (
+                        <FileVideo size={32} />
+                      )}
+                      <span className={`media-duration-badge ${isImg ? 'image-badge' : ''}`}>
+                        {isImg ? 'Photo (5s)' : formatDuration(media.metadata?.duration || 0)}
+                      </span>
+                    </div>
+                    <div className="media-card-body">
+                      <div className="media-card-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {isImg && <ImageIcon size={12} style={{ color: '#ec4899', flexShrink: 0 }} />}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {media.originalName}
+                        </span>
+                      </div>
+                      <div className="media-card-meta">
+                        {media.metadata?.width 
+                          ? `${media.metadata.width}x${media.metadata.height} • ${isImg ? 'Photo' : `${media.metadata.fps}fps`}` 
+                          : formatFileSize(media.fileSize)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {visualFiles.length === 0 && (
+                <div style={{ gridColumn: '1 / -1', padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
+                  No {mediaFilter === 'images' ? 'images' : mediaFilter === 'videos' ? 'videos' : 'media'} imported yet. Drop a file above to start!
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ================= DEDICATED IMAGES TAB ================= */}
+        {activeTab === 'images' && (
+          <>
+            <div 
+              className={`dropzone ${isDragActive ? 'drag-active' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+              onDragLeave={() => setIsDragActive(false)}
+              onDrop={handleDrop}
+              onClick={() => imageInputRef.current?.click()}
+            >
+              <input 
+                type="file" 
+                ref={imageInputRef} 
+                onChange={handleFileInput} 
+                accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.svg" 
+                multiple 
+                style={{ display: 'none' }} 
+              />
+              <ImageIcon className="dropzone-icon" style={{ color: '#ec4899' }} />
+              <div className="dropzone-title">
+                {isUploading ? 'Importing images...' : 'Import Photos & Images'}
+              </div>
+              <div className="dropzone-hint">
+                PNG, JPG, JPEG, WEBP, GIF, SVG
               </div>
             </div>
 
             <div className="section-title" style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Project Media ({videoFiles.length})
+              Imported Images ({imageFiles.length})
             </div>
 
             <div className="media-list">
-              {videoFiles.map(media => (
+              {imageFiles.map(media => (
                 <div 
                   key={media.id} 
                   className="media-card"
@@ -134,26 +259,31 @@ export default function Sidebar({
                   title={`Click to add ${media.originalName} to timeline`}
                 >
                   <div className="media-card-thumb">
-                    {media.metadata?.thumbnailUrl ? (
-                      <img src={media.metadata.thumbnailUrl} alt={media.originalName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <FileVideo size={32} />
-                    )}
-                    <span className="media-duration-badge">
-                      {formatDuration(media.metadata?.duration || 0)}
+                    <img 
+                      src={media.metadata?.thumbnailUrl || media.url} 
+                      alt={media.originalName} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                    <span className="media-duration-badge image-badge">
+                      Photo (5s)
                     </span>
                   </div>
                   <div className="media-card-body">
-                    <div className="media-card-name">{media.originalName}</div>
+                    <div className="media-card-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <ImageIcon size={12} style={{ color: '#ec4899', flexShrink: 0 }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {media.originalName}
+                      </span>
+                    </div>
                     <div className="media-card-meta">
-                      {media.metadata?.width ? `${media.metadata.width}x${media.metadata.height} • ${media.metadata.fps}fps` : formatFileSize(media.fileSize)}
+                      {media.metadata?.width ? `${media.metadata.width}x${media.metadata.height} • Photo` : formatFileSize(media.fileSize)}
                     </div>
                   </div>
                 </div>
               ))}
-              {videoFiles.length === 0 && (
+              {imageFiles.length === 0 && (
                 <div style={{ gridColumn: '1 / -1', padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
-                  No videos imported yet. Drop a file above to start!
+                  No photos imported yet. Click above to import images into your project!
                 </div>
               )}
             </div>

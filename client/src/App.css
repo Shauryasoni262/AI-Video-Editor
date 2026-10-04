@@ -322,6 +322,11 @@
   padding: 1px 4px;
   border-radius: 3px;
 }
+.media-duration-badge.image-badge {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.85), rgba(219, 39, 119, 0.85));
+  color: #ffffff;
+  font-weight: 600;
+}
 .media-card-body {
   padding: 8px;
   display: flex;
@@ -339,6 +344,52 @@
 .media-card-meta {
   font-size: 10px;
   color: var(--text-dim);
+}
+
+/* Media Filter Pills */
+.media-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.filter-pill {
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.filter-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.filter-pill.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(79, 70, 229, 0.4));
+  border-color: rgba(99, 102, 241, 0.6);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.timeline-clip.video.image-clip {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(168, 85, 247, 0.3));
+  border: 1px solid rgba(236, 72, 153, 0.5);
+}
+
+.timeline-clip.video.image-clip.selected {
+  border-color: #f472b6;
+  box-shadow: 0 0 14px rgba(236, 72, 153, 0.45);
 }
 
 /* Preset Cards (Effects & Text) */
@@ -502,11 +553,14 @@
   height: auto;
 }
 
-.preview-video {
+.preview-video,
+.preview-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
   transition: filter 0.05s ease, transform 0.05s ease;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .preview-placeholder {

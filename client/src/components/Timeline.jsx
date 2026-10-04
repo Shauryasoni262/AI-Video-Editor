@@ -7,7 +7,8 @@ import {
   Split, 
   Layers, 
   MoveHorizontal,
-  GripVertical
+  GripVertical,
+  Image as ImageIcon
 } from 'lucide-react';
 import { formatTimecode, formatDuration } from '../utils/timeUtils';
 
@@ -97,9 +98,13 @@ export default function Timeline({
             const newTrimStart = Math.max(0, Math.min(clip.trimEnd - 0.5, draggingTrim.originalTrim + deltaSeconds));
             onUpdateClip(clip.id, { trimStart: Math.round(newTrimStart * 100) / 100 });
           } else if (draggingTrim.type === 'end') {
-            const maxSource = clip.duration || 9999;
+            const isImg = clip.mediaType === 'image' || clip.type === 'image';
+            const maxSource = isImg ? 3600 : (clip.duration || 9999);
             const newTrimEnd = Math.max(clip.trimStart + 0.5, Math.min(maxSource, draggingTrim.originalTrim + deltaSeconds));
-            onUpdateClip(clip.id, { trimEnd: Math.round(newTrimEnd * 100) / 100 });
+            onUpdateClip(clip.id, { 
+              trimEnd: Math.round(newTrimEnd * 100) / 100,
+              ...(isImg ? { duration: Math.max(clip.duration || 5, Math.round(newTrimEnd * 100) / 100) } : {})
+            });
           }
         } else if (draggingTrim.trackType === 'audio') {
           const ac = audioClips.find(a => a.id === draggingTrim.id);
@@ -331,13 +336,14 @@ export default function Timeline({
                 const isSelected = selectedClipId === clip.id;
                 const isMoving = movingClip?.id === clip.id;
 
+                const isImg = clip.mediaType === 'image' || clip.type === 'image';
                 return (
                   <div 
                     key={clip.id}
-                    className={`timeline-clip video ${isSelected ? 'selected' : ''} ${isMoving ? 'is-moving' : ''}`}
+                    className={`timeline-clip video ${isImg ? 'image-clip' : ''} ${isSelected ? 'selected' : ''} ${isMoving ? 'is-moving' : ''}`}
                     style={{ left: `${left}px`, width: `${width}px` }}
                     onMouseDown={(e) => startClipMove(e, clip, 'video')}
-                    title="Click and drag to move video clip position on timeline"
+                    title={isImg ? "Click and drag to move image along timeline" : "Click and drag to move video clip position on timeline"}
                   >
                     {/* Left Trim Handle */}
                     <div 
@@ -348,10 +354,13 @@ export default function Timeline({
 
                     <div className="clip-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <GripVertical size={11} style={{ opacity: 0.6 }} />
-                      <span>{clip.name || `Clip ${idx + 1}`}</span>
-                      {clip.speed && clip.speed !== 1 && (
+                      {isImg && <ImageIcon size={12} style={{ color: '#ec4899', flexShrink: 0 }} />}
+                      <span>{clip.name || (isImg ? `Photo ${idx + 1}` : `Clip ${idx + 1}`)}</span>
+                      {isImg ? (
+                        <span style={{ marginLeft: '4px', fontSize: '9px', background: 'rgba(236,72,153,0.25)', border: '1px solid rgba(236,72,153,0.5)', padding: '0 4px', borderRadius: '3px', color: '#f472b6', fontWeight: 600 }}>PHOTO</span>
+                      ) : (clip.speed && clip.speed !== 1 && (
                         <span style={{ marginLeft: '4px', opacity: 0.8 }}>({clip.speed}x)</span>
-                      )}
+                      ))}
                     </div>
                     <span className="clip-duration-tag">{clipDuration.toFixed(1)}s</span>
 
@@ -359,7 +368,7 @@ export default function Timeline({
                     <div 
                       className="trim-handle right" 
                       onMouseDown={(e) => startTrimDrag(e, clip, 'video', 'end')}
-                      title="Drag to trim end"
+                      title={isImg ? "Drag to adjust photo duration" : "Drag to trim end"}
                     />
                   </div>
                 );

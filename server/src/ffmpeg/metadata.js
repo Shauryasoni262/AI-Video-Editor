@@ -45,11 +45,14 @@ export async function extractMetadata(filePath, storageDir) {
               }
             }
 
-            const duration = parseFloat(data.format?.duration || videoStream?.duration || audioStream?.duration || 0);
+            const isImage = /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(filePath);
+            const duration = isImage ? 5.0 : parseFloat(data.format?.duration || videoStream?.duration || audioStream?.duration || 0);
 
-            // Generate thumbnail if video
+            // Generate thumbnail if video, or use image directly for images
             let thumbnailPath = null;
-            if (videoStream && ffmpeg) {
+            if (isImage) {
+              thumbnailPath = `/media/uploads/${path.basename(filePath)}`;
+            } else if (videoStream && ffmpeg) {
               const thumbFilename = `thumb_${path.parse(filePath).name}.jpg`;
               const thumbFullPath = path.join(storageDir, 'thumbnails', thumbFilename);
               try {
@@ -63,15 +66,16 @@ export async function extractMetadata(filePath, storageDir) {
             }
 
             return resolve({
-              format: data.format?.format_name || 'unknown',
+              format: data.format?.format_name || (isImage ? 'image' : 'unknown'),
               duration,
+              isImage,
               size: parseInt(data.format?.size || 0, 10),
               bitrate: parseInt(data.format?.bit_rate || 0, 10),
               width: videoStream?.width || null,
               height: videoStream?.height || null,
               aspectRatio: videoStream?.display_aspect_ratio || (videoStream?.width ? `${videoStream.width}:${videoStream.height}` : null),
               fps,
-              videoCodec: videoStream?.codec_name || null,
+              videoCodec: videoStream?.codec_name || (isImage ? 'image' : null),
               hasAudio: !!audioStream,
               audioCodec: audioStream?.codec_name || null,
               audioChannels: audioStream?.channels || null,
@@ -121,8 +125,12 @@ function fallbackFfmpegInfo(ffmpeg, filePath, storageDir, resolve, reject) {
     const fpsMatch = output.match(/(\d+(?:\.\d+)?)\s*fps/);
     const hasAudio = /Audio:/.test(output);
 
+    const isImage = /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(filePath);
     let thumbnailPath = null;
-    if (resMatch) {
+    if (isImage) {
+      thumbnailPath = `/media/uploads/${path.basename(filePath)}`;
+      duration = 5.0;
+    } else if (resMatch) {
       const thumbFilename = `thumb_${path.parse(filePath).name}.jpg`;
       const thumbFullPath = path.join(storageDir, 'thumbnails', thumbFilename);
       try {
@@ -133,11 +141,12 @@ function fallbackFfmpegInfo(ffmpeg, filePath, storageDir, resolve, reject) {
     }
 
     resolve({
-      format: path.extname(filePath).replace('.', ''),
-      duration,
+      format: path.extname(filePath).replace('.', '') || (isImage ? 'image' : 'unknown'),
+      duration: isImage ? 5.0 : duration,
+      isImage,
       size: fs.existsSync(filePath) ? fs.statSync(filePath).size : 0,
-      width: resMatch ? parseInt(resMatch[1], 10) : null,
-      height: resMatch ? parseInt(resMatch[2], 10) : null,
+      width: resMatch ? parseInt(resMatch[1], 10) : 1920,
+      height: resMatch ? parseInt(resMatch[2], 10) : 1080,
       fps: fpsMatch ? parseFloat(fpsMatch[1]) : 30,
       hasAudio,
       thumbnailUrl: thumbnailPath

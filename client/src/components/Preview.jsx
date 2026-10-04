@@ -36,7 +36,7 @@ export default function Preview({
   const [isLooping, setIsLooping] = useState(false);
   const [fitMode, setFitMode] = useState('cover'); // 'cover' (fill vertical reel) or 'contain' (letterbox)
 
-  // Find the active video clip on the timeline for current time
+  // Find the active video or image clip on the timeline for current time
   const activeClip = videoClips.find(c => {
     const clipDur = (c.trimEnd - c.trimStart) / (c.speed || 1);
     const start = c.timelineStart || 0;
@@ -44,9 +44,11 @@ export default function Preview({
     return currentTime >= start && currentTime < end;
   }) || (videoClips.length > 0 && currentTime === 0 ? videoClips[0] : null);
 
+  const isImageClip = activeClip?.mediaType === 'image' || activeClip?.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(activeClip?.url || '');
+
   // Synchronize HTML5 video element with current timeline time
   useEffect(() => {
-    if (!videoRef.current || !activeClip) return;
+    if (!videoRef.current || !activeClip || isImageClip) return;
 
     const clipStart = activeClip.timelineStart || 0;
     const speed = activeClip.speed || 1;
@@ -57,18 +59,18 @@ export default function Preview({
     if (Math.abs(videoRef.current.currentTime - targetSourceTime) > 0.15) {
       videoRef.current.currentTime = Math.max(0, targetSourceTime);
     }
-  }, [currentTime, activeClip]);
+  }, [currentTime, activeClip, isImageClip]);
 
   // Handle play/pause sync
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || isImageClip) return;
     if (isPlaying) {
       videoRef.current.playbackRate = activeClip?.speed || 1;
       videoRef.current.play().catch(e => console.warn('Autoplay prevented:', e));
     } else {
       videoRef.current.pause();
     }
-  }, [isPlaying, activeClip]);
+  }, [isPlaying, activeClip, isImageClip]);
 
   // Animation frame loop to increment timeline playhead smoothly when playing
   useEffect(() => {
@@ -224,18 +226,33 @@ export default function Preview({
                 />
               )}
 
-              <video 
-                ref={videoRef}
-                src={activeClip.url}
-                className="preview-video"
-                style={{
-                  ...getFilterStyle(),
-                  objectFit: aspectRatio === '9:16' ? fitMode : 'contain'
-                }}
-                muted={isMuted || activeClip.muteOriginalAudio}
-                volume={volume}
-                playsInline
-              />
+              {isImageClip ? (
+                <img 
+                  src={activeClip.url}
+                  alt={activeClip.name || 'Image clip'}
+                  className="preview-image"
+                  style={{
+                    ...getFilterStyle(),
+                    objectFit: aspectRatio === '9:16' ? fitMode : 'contain',
+                    width: '100%',
+                    height: '100%',
+                    display: 'block'
+                  }}
+                />
+              ) : (
+                <video 
+                  ref={videoRef}
+                  src={activeClip.url}
+                  className="preview-video"
+                  style={{
+                    ...getFilterStyle(),
+                    objectFit: aspectRatio === '9:16' ? fitMode : 'contain'
+                  }}
+                  muted={isMuted || activeClip.muteOriginalAudio}
+                  volume={volume}
+                  playsInline
+                />
+              )}
 
               {/* Text Overlays rendering */}
               {activeTexts.map(txt => (
@@ -254,9 +271,9 @@ export default function Preview({
           ) : (
             <div className="preview-placeholder">
               <Film size={48} />
-              <div style={{ fontWeight: 600, fontSize: '15px' }}>No Video on Timeline</div>
+              <div style={{ fontWeight: 600, fontSize: '15px' }}>No Media on Timeline</div>
               <div style={{ fontSize: '12px', maxWidth: '300px' }}>
-                Add a video from the Media Library on the left to start editing.
+                Add a video or photo from the Media Library on the left to start editing.
               </div>
             </div>
           )}

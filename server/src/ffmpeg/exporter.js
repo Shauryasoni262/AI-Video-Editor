@@ -58,8 +58,12 @@ export class ExportJob {
     }
 
     // Check if we can do a pure stream copy (Fast zero-loss export)
+    const firstClip = videoClips[0];
+    const isFirstClipImage = firstClip.mediaType === 'image' || firstClip.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(firstClip.filePath);
+
     const canStreamCopy = (
       videoClips.length === 1 &&
+      !isFirstClipImage &&
       audioClips.length === 0 &&
       textOverlays.length === 0 &&
       this.preset === 'original' &&
@@ -126,11 +130,18 @@ export class ExportJob {
       const trimEnd = clip.trimEnd || clip.duration;
       const clipSpeed = clip.speed || 1.0;
 
-      // Video filters for this clip
-      let vf = `[${inputIdx}:v]trim=start=${trimStart}:end=${trimEnd},setpts=PTS-STARTPTS`;
+      const isImg = clip.mediaType === 'image' || clip.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(clip.filePath);
+      const clipDuration = Math.max(0.1, (trimEnd - trimStart) / clipSpeed);
 
-      if (clipSpeed !== 1.0) {
-        vf += `,setpts=(1/${clipSpeed})*PTS`;
+      // Video filters for this clip (loop if image)
+      let vf;
+      if (isImg) {
+        vf = `[${inputIdx}:v]loop=loop=-1:size=1:start=0,trim=start=0:end=${clipDuration},setpts=PTS-STARTPTS`;
+      } else {
+        vf = `[${inputIdx}:v]trim=start=${trimStart}:end=${trimEnd},setpts=PTS-STARTPTS`;
+        if (clipSpeed !== 1.0) {
+          vf += `,setpts=(1/${clipSpeed})*PTS`;
+        }
       }
 
       // Visual effects
@@ -179,8 +190,13 @@ export class ExportJob {
         vf += `,scale=iw*${z}:ih*${z},crop=iw/${z}:ih/${z}`;
       }
 
-      // Resolution scaling presets
-      if (this.preset === '1080p') {
+      // Aspect ratio & resolution scaling presets
+      const targetAspect = this.projectData.aspectRatio || '16:9';
+      if (targetAspect === '9:16') {
+        vf += `,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+      } else if (targetAspect === '1:1') {
+        vf += `,scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+      } else if (this.preset === '1080p' || videoClips.length > 1) {
         vf += `,scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1`;
       } else if (this.preset === '4k') {
         vf += `,scale=3840:2160:force_original_aspect_ratio=decrease,pad=3840:2160:(ow-iw)/2:(oh-ih)/2,setsar=1`;
@@ -190,14 +206,19 @@ export class ExportJob {
       filterParts.push(`${vf}[${vOutTag}]`);
       videoSegmentOuts.push(`[${vOutTag}]`);
 
-      // Audio from video clip
-      let af = `[${inputIdx}:a]atrim=start=${trimStart}:end=${trimEnd},asetpts=PTS-STARTPTS`;
-      if (clipSpeed !== 1.0) {
-        // atempo only accepts 0.5 to 2.0 per filter instance
-        af += `,atempo=${clipSpeed}`;
+      // Audio from video clip (or generated silence if image/silent clip)
+      const hasAudio = !isImg && clip.hasAudio !== false && clip.metadata?.hasAudio !== false;
+      let af;
+      if (hasAudio) {
+        af = `[${inputIdx}:a]atrim=start=${trimStart}:end=${trimEnd},asetpts=PTS-STARTPTS`;
+        if (clipSpeed !== 1.0) {
+          af += `,atempo=${clipSpeed}`;
+        }
+        const clipVol = clip.muteOriginalAudio ? 0 : (clip.volume !== undefined ? clip.volume : 1);
+        af += `,volume=${clipVol}`;
+      } else {
+        af = `aevalsrc=0:d=${clipDuration}:s=44100`;
       }
-      const clipVol = clip.muteOriginalAudio ? 0 : (clip.volume !== undefined ? clip.volume : 1);
-      af += `,volume=${clipVol}`;
 
       const aOutTag = `a_seg_${index}`;
       filterParts.push(`${af}[${aOutTag}]`);

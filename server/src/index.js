@@ -84,13 +84,18 @@ app.get('/api/media', async (req, res) => {
       const stat = fs.statSync(fullPath);
       const isVideo = /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(f);
       const isAudio = /\.(mp3|wav|ogg|aac|m4a|flac)$/i.test(f);
+      const isImage = /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(f);
 
-      if (isVideo || isAudio) {
+      if (isVideo || isAudio || isImage) {
         let metadata = {};
         try {
           metadata = await extractMetadata(fullPath, storageDir);
         } catch (e) {
-          metadata = { duration: 10, format: path.extname(f).replace('.', '') };
+          metadata = { 
+            duration: isImage ? 5.0 : 10, 
+            format: path.extname(f).replace('.', ''),
+            thumbnailUrl: isImage ? `/media/uploads/${f}` : null
+          };
         }
 
         mediaList.push({
@@ -99,7 +104,7 @@ app.get('/api/media', async (req, res) => {
           fileName: f,
           filePath: fullPath,
           fileSize: stat.size,
-          type: isVideo ? 'video' : 'audio',
+          type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
           url: `/media/uploads/${f}`,
           metadata
         });
@@ -112,7 +117,7 @@ app.get('/api/media', async (req, res) => {
   }
 });
 
-// 2. Upload video / audio
+// 2. Upload video / audio / image
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -122,6 +127,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const filePath = req.file.path;
     const isVideo = req.file.mimetype.startsWith('video') || /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(req.file.originalname);
     const isAudio = req.file.mimetype.startsWith('audio') || /\.(mp3|wav|ogg|aac|m4a|flac)$/i.test(req.file.originalname);
+    const isImage = req.file.mimetype.startsWith('image') || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(req.file.originalname);
 
     // Extract real FFprobe metadata
     let metadata = {};
@@ -130,8 +136,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     } catch (err) {
       console.warn('Metadata extraction warning:', err.message);
       metadata = {
-        duration: 0,
-        format: path.extname(filePath).replace('.', '')
+        duration: isImage ? 5.0 : 0,
+        format: path.extname(filePath).replace('.', ''),
+        thumbnailUrl: isImage ? `/media/uploads/${req.file.filename}` : null
       };
     }
 
@@ -142,7 +149,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       filePath: filePath,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
-      type: isVideo ? 'video' : (isAudio ? 'audio' : 'other'),
+      type: isVideo ? 'video' : (isAudio ? 'audio' : (isImage ? 'image' : 'other')),
       url: `/media/uploads/${req.file.filename}`,
       metadata
     };

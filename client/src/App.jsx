@@ -81,10 +81,10 @@ export default function App() {
     listMediaApi().then(items => {
       if (items && items.length > 0) {
         setMediaFiles(items);
-        // Automatically add first video if timeline is empty
-        const firstVideo = items.find(i => i.type === 'video');
-        if (firstVideo) {
-          handleAddVideoToTimeline(firstVideo);
+        // Automatically add first visual (video or image) if timeline is empty
+        const firstVisual = items.find(i => i.type === 'video' || i.type === 'image');
+        if (firstVisual && videoClips.length === 0) {
+          handleAddVideoToTimeline(firstVisual);
         }
       }
     }).catch(err => console.warn('Media list fetch error:', err));
@@ -156,8 +156,8 @@ export default function App() {
       const mediaItem = await uploadMediaFile(file);
       setMediaFiles(prev => [...prev, mediaItem]);
 
-      // Automatically add first video to timeline
-      if (mediaItem.type === 'video' && videoClips.length === 0) {
+      // Automatically add first video or image to timeline
+      if ((mediaItem.type === 'video' || mediaItem.type === 'image') && videoClips.length === 0) {
         handleAddVideoToTimeline(mediaItem);
       }
     } catch (err) {
@@ -167,10 +167,11 @@ export default function App() {
     }
   };
 
-  // 2. Add Video to Timeline
+  // 2. Add Video or Image to Timeline
   const handleAddVideoToTimeline = (media) => {
     saveSnapshot();
-    const duration = media.metadata?.duration || 10;
+    const isImage = media.type === 'image' || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(media.originalName || media.url);
+    const duration = isImage ? 5.0 : (media.metadata?.duration || 10);
     const lastClipEnd = videoClips.reduce((max, c) => {
       const dur = (c.trimEnd - c.trimStart) / (c.speed || 1);
       return Math.max(max, (c.timelineStart || 0) + dur);
@@ -179,6 +180,7 @@ export default function App() {
     const newClip = {
       id: `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       mediaId: media.id,
+      mediaType: isImage ? 'image' : 'video',
       name: media.originalName,
       filePath: media.filePath,
       url: media.url,
@@ -187,8 +189,8 @@ export default function App() {
       trimEnd: duration,
       timelineStart: lastClipEnd,
       speed: 1.0,
-      volume: 1.0,
-      muteOriginalAudio: false,
+      volume: isImage ? 0 : 1.0,
+      muteOriginalAudio: isImage ? true : false,
       effects: {
         brightness: 0,
         contrast: 1,
