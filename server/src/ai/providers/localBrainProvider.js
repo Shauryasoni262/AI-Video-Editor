@@ -36,6 +36,7 @@ export class LocalBrainProvider extends BaseAiProvider {
     let remove = [];
     let effects = { brightness: 0, contrast: 1.0, saturation: 1.0 };
     let speed = 1.0;
+    let aspectRatio = '16:9';
     let muteAudio = false;
     let captions = false;
     let textOverlay = null;
@@ -169,6 +170,7 @@ export class LocalBrainProvider extends BaseAiProvider {
       speed = 1.15; // Snappy pacing for reels
       effects.saturation = 1.3; // Punchy color pop
       effects.contrast = 1.12;
+      aspectRatio = '9:16';
       captions = true;
       textOverlay = {
         text: 'Viral Reel',
@@ -176,8 +178,32 @@ export class LocalBrainProvider extends BaseAiProvider {
         fontSize: 42
       };
 
-      summary = `Generated a fast-paced 10s Social Reel with 1.15x speed, vibrant color grading & title.`;
-      reasoning = `Reels thrive on high saturation (+30%), punchy pacing (1.15x speed), and a tight 10s attention window. Trimmed starting at ${startPoint}s to isolate the most engaging visual movement.`;
+      summary = `Generated a fast-paced 9:16 Social Reel with 1.15x speed, vibrant color grading & title.`;
+      reasoning = `Reels thrive on 9:16 vertical framing, high saturation (+30%), punchy pacing (1.15x speed), and a tight 10s attention window. Trimmed starting at ${startPoint}s to isolate the most engaging visual movement.`;
+    }
+
+    // =========================================================================
+    // Intent 2.5: Frame Aspect Ratio ("make it 9:16 frame", "16:9", "1:1")
+    // =========================================================================
+    else if (p.includes('9:16') || p.includes('16:9') || p.includes('1:1') || p.includes('vertical') || p.includes('aspect') || p.includes('frame')) {
+      if (p.includes('9:16') || p.includes('vertical') || p.includes('reel') || p.includes('story') || p.includes('portrait')) {
+        aspectRatio = '9:16';
+        summary = `Set frame aspect ratio to 9:16 Vertical Reel format.`;
+        reasoning = `Switched canvas and timeline framing to 9:16 mobile aspect ratio. Preserved footage and ready for social sharing.`;
+      } else if (p.includes('1:1') || p.includes('square')) {
+        aspectRatio = '1:1';
+        summary = `Set frame aspect ratio to 1:1 Square format.`;
+        reasoning = `Switched canvas and timeline framing to 1:1 square aspect ratio.`;
+      } else {
+        aspectRatio = '16:9';
+        summary = `Set frame aspect ratio to 16:9 Widescreen format.`;
+        reasoning = `Switched canvas and timeline framing to 16:9 landscape aspect ratio.`;
+      }
+      keep.push({
+        start: 0,
+        end: duration,
+        reason: 'Preserved timeline footage with updated 9:16 framing'
+      });
     }
 
     // =========================================================================
@@ -287,6 +313,7 @@ export class LocalBrainProvider extends BaseAiProvider {
       modelName: 'Local Video Brain (FFmpeg Analysis)',
       summary,
       reasoning,
+      aspectRatio,
       targetDuration: keep.reduce((acc, k) => acc + (k.end - k.start), 0) / speed,
       keep,
       remove,

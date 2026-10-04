@@ -468,25 +468,30 @@ export default function AiAssistant({
               </div>
             )}
 
-            {/* Visual Adjustments Strip (Speed, Effects, Captions) */}
+            {/* Visual Adjustments Strip (Aspect Ratio, Speed, Effects, Captions) */}
             {plannedAction.plan && (
               <div className="ai-plan-adjustments-strip">
-                {plannedAction.plan.speed && plannedAction.plan.speed !== 1 && (
+                {Boolean(plannedAction.plan.aspectRatio) && (
+                  <span className="adj-pill" style={{ background: 'rgba(236, 72, 153, 0.18)', borderColor: 'rgba(236, 72, 153, 0.5)', color: '#f472b6', fontWeight: 600 }}>
+                    📱 Frame: {plannedAction.plan.aspectRatio} {plannedAction.plan.aspectRatio === '9:16' ? '(Vertical Reel)' : plannedAction.plan.aspectRatio === '1:1' ? '(Square)' : '(Landscape)'}
+                  </span>
+                )}
+                {Boolean(plannedAction.plan.speed && plannedAction.plan.speed !== 1) && (
                   <span className="adj-pill">⚡ Speed: {plannedAction.plan.speed}x</span>
                 )}
-                {plannedAction.plan.effects?.contrast && plannedAction.plan.effects.contrast !== 1 && (
+                {Boolean(plannedAction.plan.effects?.contrast && plannedAction.plan.effects.contrast !== 1) && (
                   <span className="adj-pill">🎨 Contrast: {plannedAction.plan.effects.contrast}x</span>
                 )}
-                {plannedAction.plan.effects?.saturation && plannedAction.plan.effects.saturation !== 1 && (
+                {Boolean(plannedAction.plan.effects?.saturation && plannedAction.plan.effects.saturation !== 1) && (
                   <span className="adj-pill">✨ Saturation: {plannedAction.plan.effects.saturation}x</span>
                 )}
-                {plannedAction.plan.effects?.brightness && plannedAction.plan.effects.brightness !== 0 && (
+                {Boolean(typeof plannedAction.plan.effects?.brightness === 'number' && plannedAction.plan.effects.brightness !== 0) && (
                   <span className="adj-pill">☀️ Brightness: {plannedAction.plan.effects.brightness > 0 ? '+' : ''}{plannedAction.plan.effects.brightness}</span>
                 )}
-                {plannedAction.plan.captions && (
+                {Boolean(plannedAction.plan.captions) && (
                   <span className="adj-pill">📝 Captions Enabled</span>
                 )}
-                {plannedAction.plan.textOverlay && (
+                {Boolean(plannedAction.plan.textOverlay) && (
                   <span className="adj-pill">💬 Title: "{plannedAction.plan.textOverlay.text}"</span>
                 )}
               </div>

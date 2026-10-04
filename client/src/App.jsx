@@ -42,6 +42,10 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedClipId, setSelectedClipId] = useState(null);
 
+  // Project Framing & Aspect Ratio: '16:9' | '9:16' | '1:1'
+  const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [aiToast, setAiToast] = useState(null);
+
   // Right Inspector View: 'properties' | 'ai'
   const [rightTab, setRightTab] = useState('properties');
 
@@ -98,11 +102,12 @@ export default function App() {
     const snapshot = {
       videoClips: JSON.parse(JSON.stringify(videoClips)),
       audioClips: JSON.parse(JSON.stringify(audioClips)),
-      textOverlays: JSON.parse(JSON.stringify(textOverlays))
+      textOverlays: JSON.parse(JSON.stringify(textOverlays)),
+      aspectRatio
     };
     setUndoStack(prev => [...prev.slice(-20), snapshot]);
     setRedoStack([]);
-  }, [videoClips, audioClips, textOverlays]);
+  }, [videoClips, audioClips, textOverlays, aspectRatio]);
 
   // Undo Action
   const handleUndo = () => {
@@ -111,7 +116,8 @@ export default function App() {
     const current = {
       videoClips: JSON.parse(JSON.stringify(videoClips)),
       audioClips: JSON.parse(JSON.stringify(audioClips)),
-      textOverlays: JSON.parse(JSON.stringify(textOverlays))
+      textOverlays: JSON.parse(JSON.stringify(textOverlays)),
+      aspectRatio
     };
 
     setRedoStack(prev => [...prev, current]);
@@ -120,6 +126,7 @@ export default function App() {
     setVideoClips(previous.videoClips);
     setAudioClips(previous.audioClips);
     setTextOverlays(previous.textOverlays);
+    if (previous.aspectRatio) setAspectRatio(previous.aspectRatio);
   };
 
   // Redo Action
@@ -129,7 +136,8 @@ export default function App() {
     const current = {
       videoClips: JSON.parse(JSON.stringify(videoClips)),
       audioClips: JSON.parse(JSON.stringify(audioClips)),
-      textOverlays: JSON.parse(JSON.stringify(textOverlays))
+      textOverlays: JSON.parse(JSON.stringify(textOverlays)),
+      aspectRatio
     };
 
     setUndoStack(prev => [...prev, current]);
@@ -138,6 +146,7 @@ export default function App() {
     setVideoClips(next.videoClips);
     setAudioClips(next.audioClips);
     setTextOverlays(next.textOverlays);
+    if (next.aspectRatio) setAspectRatio(next.aspectRatio);
   };
 
   // 1. Upload Media
@@ -462,6 +471,11 @@ export default function App() {
 
     // 1. If Real AI Edit Plan
     if (plan && !plan.legacyAction) {
+      // 1.1 Update Aspect Ratio if specified in plan (e.g. '9:16', '16:9', '1:1')
+      if (plan.aspectRatio && ['16:9', '9:16', '1:1'].includes(plan.aspectRatio)) {
+        setAspectRatio(plan.aspectRatio);
+      }
+
       if (activeClip && plan.keep && plan.keep.length > 0) {
         if (plan.keep.length === 1) {
           // Single kept segment
@@ -476,6 +490,7 @@ export default function App() {
             effects: { ...activeClip.effects, ...(plan.effects || {}) },
             muteOriginalAudio: !!plan.muteAudio
           });
+          setCurrentTime(activeClip.timelineStart || 0);
         } else {
           // Multiple kept segments (e.g. jump-cuts / best moments montage)
           const newClips = [];
@@ -510,6 +525,7 @@ export default function App() {
             }
             return newClips;
           });
+          setCurrentTime(activeClip.timelineStart || 0);
         }
       }
 
@@ -541,6 +557,12 @@ export default function App() {
         }
       ]);
 
+      const toastMsg = plan.aspectRatio === '9:16'
+        ? '✓ Applied: 9:16 Frame + Timeline Updated'
+        : `✓ Applied: ${plan.summary || 'AI Edit Plan'}`;
+      setAiToast(toastMsg);
+      setTimeout(() => setAiToast(null), 4000);
+
       setPlannedAction(null);
       return;
     }
@@ -548,6 +570,13 @@ export default function App() {
     // 2. Legacy Fallback Action Handling
     const act = action || plan?.legacyAction;
     if (act) {
+      if (act.type === 'SET_ASPECT_RATIO') {
+        const ar = act.payload?.aspectRatio || act.payload || '16:9';
+        setAspectRatio(ar);
+      } else if (act.aspectRatio) {
+        setAspectRatio(act.aspectRatio);
+      }
+
       if (act.type === 'TRIM_START' && activeClip) {
         const secs = act.payload.seconds;
         const newStart = Math.min(activeClip.trimEnd - 0.5, activeClip.trimStart + secs);
@@ -592,6 +621,10 @@ export default function App() {
         }
       ]);
 
+      const toastMsg = `✓ Applied: ${act.description || 'Action Executed'}`;
+      setAiToast(toastMsg);
+      setTimeout(() => setAiToast(null), 4000);
+
       setPlannedAction(null);
     }
   };
@@ -609,6 +642,7 @@ export default function App() {
         id: projectId,
         name: projectName,
         totalDuration,
+        aspectRatio,
         videoClips,
         audioClips,
         textOverlays
@@ -628,6 +662,7 @@ export default function App() {
     setVideoClips(proj.videoClips || []);
     setAudioClips(proj.audioClips || []);
     setTextOverlays(proj.textOverlays || []);
+    if (proj.aspectRatio) setAspectRatio(proj.aspectRatio);
     setCurrentTime(0);
     setSelectedClipId(proj.videoClips?.[0]?.id || null);
   };
@@ -640,6 +675,7 @@ export default function App() {
     setVideoClips([]);
     setAudioClips([]);
     setTextOverlays([]);
+    setAspectRatio('16:9');
     setCurrentTime(0);
     setSelectedClipId(null);
     setUndoStack([]);
@@ -691,6 +727,8 @@ export default function App() {
           isPlaying={isPlaying}
           setIsPlaying={setIsPlaying}
           selectedClipId={selectedClipId}
+          aspectRatio={aspectRatio}
+          setAspectRatio={setAspectRatio}
         />
 
         {/* Right Inspector & AI Assistant Panel */}
@@ -767,7 +805,8 @@ export default function App() {
           videoClips,
           audioClips,
           textOverlays,
-          totalDuration
+          totalDuration,
+          aspectRatio
         }}
       />
 
@@ -785,6 +824,14 @@ export default function App() {
         onClose={() => setIsAiSettingsOpen(false)}
         onSettingsUpdated={(settings) => setActiveAiProvider(settings?.provider || 'local-brain')}
       />
+
+      {/* 7. AI Success Toast Notification Banner */}
+      {aiToast && (
+        <div className="ai-toast-banner" role="status">
+          <span>✨</span>
+          <span>{aiToast}</span>
+        </div>
+      )}
     </div>
   );
 }

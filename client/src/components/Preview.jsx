@@ -8,7 +8,11 @@ import {
   RotateCcw, 
   SkipBack, 
   SkipForward,
-  Film
+  Film,
+  Smartphone,
+  Monitor,
+  Square,
+  Crop
 } from 'lucide-react';
 import { formatTimecode, formatDuration } from '../utils/timeUtils';
 
@@ -21,13 +25,16 @@ export default function Preview({
   totalDuration,
   isPlaying,
   setIsPlaying,
-  selectedClipId
+  selectedClipId,
+  aspectRatio = '16:9',
+  setAspectRatio
 }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
+  const [fitMode, setFitMode] = useState('cover'); // 'cover' (fill vertical reel) or 'contain' (letterbox)
 
   // Find the active video clip on the timeline for current time
   const activeClip = videoClips.find(c => {
@@ -151,16 +158,80 @@ export default function Preview({
 
   return (
     <div className="preview-container" ref={containerRef}>
+      {/* Top Aspect Ratio Toolbar */}
+      <div className="preview-top-toolbar">
+        <div className="aspect-ratio-selector">
+          <button 
+            type="button" 
+            className={`aspect-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
+            onClick={() => setAspectRatio && setAspectRatio('9:16')}
+            title="9:16 Vertical Reel / TikTok / Shorts"
+          >
+            <Smartphone size={13} />
+            <span>9:16 Reel</span>
+          </button>
+          <button 
+            type="button" 
+            className={`aspect-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
+            onClick={() => setAspectRatio && setAspectRatio('16:9')}
+            title="16:9 Widescreen / Landscape"
+          >
+            <Monitor size={13} />
+            <span>16:9 Wide</span>
+          </button>
+          <button 
+            type="button" 
+            className={`aspect-btn ${aspectRatio === '1:1' ? 'active' : ''}`}
+            onClick={() => setAspectRatio && setAspectRatio('1:1')}
+            title="1:1 Square Format"
+          >
+            <Square size={12} />
+            <span>1:1</span>
+          </button>
+        </div>
+
+        {aspectRatio === '9:16' && (
+          <button
+            type="button"
+            className="fit-toggle-btn"
+            onClick={() => setFitMode(fitMode === 'cover' ? 'contain' : 'cover')}
+            title={fitMode === 'cover' ? 'Switch to Fit (Letterbox)' : 'Switch to Fill (Full-bleed Reel)'}
+          >
+            <Crop size={12} />
+            <span>{fitMode === 'cover' ? 'Fill (Full Reel)' : 'Fit (Letterbox)'}</span>
+          </button>
+        )}
+      </div>
+
       {/* Center Viewport */}
       <div className="preview-viewport-wrapper">
-        <div className="preview-viewport">
+        <div className={`preview-viewport aspect-${aspectRatio.replace(':', '-')}`}>
           {activeClip ? (
             <>
+              {/* If 9:16 and letterboxed (contain), render ambient blurred background */}
+              {aspectRatio === '9:16' && fitMode === 'contain' && (
+                <div 
+                  className="preview-ambient-blur"
+                  style={{
+                    backgroundImage: `url(${activeClip.url})`,
+                    position: 'absolute',
+                    inset: '-20px',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    filter: 'blur(30px) brightness(0.35)',
+                    pointerEvents: 'none'
+                  }}
+                />
+              )}
+
               <video 
                 ref={videoRef}
                 src={activeClip.url}
                 className="preview-video"
-                style={getFilterStyle()}
+                style={{
+                  ...getFilterStyle(),
+                  objectFit: aspectRatio === '9:16' ? fitMode : 'contain'
+                }}
                 muted={isMuted || activeClip.muteOriginalAudio}
                 volume={volume}
                 playsInline
@@ -172,7 +243,7 @@ export default function Preview({
                   key={txt.id} 
                   className={`preview-text-overlay ${txt.position || 'bottom'}`}
                   style={{
-                    fontSize: `${txt.fontSize || 36}px`,
+                    fontSize: `${txt.fontSize || (aspectRatio === '9:16' ? 26 : 36)}px`,
                     color: txt.color || '#ffffff'
                   }}
                 >
