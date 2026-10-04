@@ -1,3 +1,4 @@
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   Scissors, 
   Trash2, 
