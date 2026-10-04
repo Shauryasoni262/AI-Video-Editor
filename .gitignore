@@ -16,7 +16,9 @@ yarn-debug.log*
 Thumbs.db
 .DS_Store
 
-# Server exports and generated thumbnails
+# Server uploads, exports, and generated thumbnails
+server/storage/uploads/*
+!server/storage/uploads/.gitkeep
 server/storage/exports/*
 !server/storage/exports/.gitkeep
 server/storage/thumbnails/*
