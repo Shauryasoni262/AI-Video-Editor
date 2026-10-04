@@ -48,6 +48,7 @@ export default function App() {
 
   // Right Inspector View: 'properties' | 'ai'
   const [rightTab, setRightTab] = useState('properties');
+  const [isAiExpanded, setIsAiExpanded] = useState(false);
 
   // AI Command History & Planned Action
   const [commandHistory, setCommandHistory] = useState([]);
@@ -705,36 +706,59 @@ export default function App() {
         ffmpegStatus={ffmpegStatus}
       />
 
-      {/* 2. Middle Work Area */}
-      <div className="editor-workspace">
-        {/* Left Sidebar */}
-        <Sidebar 
-          mediaFiles={mediaFiles}
-          onUploadFile={handleUploadFile}
-          isUploading={isUploading}
-          onAddVideoToTimeline={handleAddVideoToTimeline}
-          onAddAudioToTimeline={handleAddAudioToTimeline}
-          onAddTextOverlay={handleAddTextOverlay}
-          onApplyEffectPreset={handleApplyEffectPreset}
-        />
+      {/* 2. Main Content Body (Left: Upper Workspace + Timeline, Right: Full Height Inspector / AI Assistant) */}
+      <div className="editor-main-body">
+        {/* Left & Center: Workspace + Bottom Timeline */}
+        <div className="editor-content-area">
+          <div className="editor-workspace">
+            {/* Left Sidebar */}
+            <Sidebar 
+              mediaFiles={mediaFiles}
+              onUploadFile={handleUploadFile}
+              isUploading={isUploading}
+              onAddVideoToTimeline={handleAddVideoToTimeline}
+              onAddAudioToTimeline={handleAddAudioToTimeline}
+              onAddTextOverlay={handleAddTextOverlay}
+              onApplyEffectPreset={handleApplyEffectPreset}
+            />
 
-        {/* Center Preview Viewport */}
-        <Preview 
-          videoClips={videoClips}
-          audioClips={audioClips}
-          textOverlays={textOverlays}
-          currentTime={currentTime}
-          setCurrentTime={setCurrentTime}
-          totalDuration={totalDuration}
-          isPlaying={isPlaying}
-          setIsPlaying={setIsPlaying}
-          selectedClipId={selectedClipId}
-          aspectRatio={aspectRatio}
-          setAspectRatio={setAspectRatio}
-        />
+            {/* Center Preview Viewport */}
+            <Preview 
+              videoClips={videoClips}
+              audioClips={audioClips}
+              textOverlays={textOverlays}
+              currentTime={currentTime}
+              setCurrentTime={setCurrentTime}
+              totalDuration={totalDuration}
+              isPlaying={isPlaying}
+              setIsPlaying={setIsPlaying}
+              selectedClipId={selectedClipId}
+              aspectRatio={aspectRatio}
+              setAspectRatio={setAspectRatio}
+            />
+          </div>
 
-        {/* Right Inspector & AI Assistant Panel */}
-        <aside className="inspector-container">
+          {/* Bottom Timeline */}
+          <Timeline 
+            videoClips={videoClips}
+            audioClips={audioClips}
+            textOverlays={textOverlays}
+            currentTime={currentTime}
+            setCurrentTime={setCurrentTime}
+            totalDuration={totalDuration}
+            selectedClipId={selectedClipId}
+            setSelectedClipId={setSelectedClipId}
+            onSplitClip={handleSplitClip}
+            onDeleteClip={handleDeleteSelected}
+            onUpdateClip={handleUpdateClip}
+            onUpdateAudio={handleUpdateAudio}
+            onUpdateText={handleUpdateText}
+            saveSnapshot={saveSnapshot}
+          />
+        </div>
+
+        {/* Right Inspector & AI Assistant Panel (Full Height all the way to bottom edge!) */}
+        <aside className={`inspector-container ${rightTab === 'ai' ? 'ai-tab-active' : ''} ${isAiExpanded ? 'ai-expanded' : ''}`}>
           <div className="inspector-tabs">
             <button 
               className={`inspector-tab-btn ${rightTab === 'properties' ? 'active' : ''}`}
@@ -774,29 +798,13 @@ export default function App() {
                 commandHistory={commandHistory}
                 isProcessing={isAiProcessing}
                 activeClip={selectedClip || videoClips[0]}
+                isExpanded={isAiExpanded}
+                onToggleExpand={() => setIsAiExpanded(prev => !prev)}
               />
             </div>
           )}
         </aside>
       </div>
-
-      {/* 3. Bottom Timeline */}
-      <Timeline 
-        videoClips={videoClips}
-        audioClips={audioClips}
-        textOverlays={textOverlays}
-        currentTime={currentTime}
-        setCurrentTime={setCurrentTime}
-        totalDuration={totalDuration}
-        selectedClipId={selectedClipId}
-        setSelectedClipId={setSelectedClipId}
-        onSplitClip={handleSplitClip}
-        onDeleteClip={handleDeleteSelected}
-        onUpdateClip={handleUpdateClip}
-        onUpdateAudio={handleUpdateAudio}
-        onUpdateText={handleUpdateText}
-        saveSnapshot={saveSnapshot}
-      />
 
       {/* 4. Export Modal */}
       <ExportModal 

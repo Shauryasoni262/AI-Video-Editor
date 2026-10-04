@@ -23,7 +23,9 @@ import {
   Settings,
   Cpu,
   Eye,
-  Sliders
+  Sliders,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 function CopyButton({ text, label = 'Copy', className = '' }) {
@@ -94,11 +96,14 @@ export default function AiAssistant({
   activeProvider = 'local-brain',
   commandHistory = [],
   isProcessing = false,
-  activeClip
+  activeClip,
+  isExpanded = false,
+  onToggleExpand
 }) {
   const [prompt, setPrompt] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [requireConfirmation, setRequireConfirmation] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const streamBottomRef = useRef(null);
 
   const categories = [
@@ -190,6 +195,29 @@ export default function AiAssistant({
               <span className="ai-target-name">{activeClip.name}</span>
             </div>
           )}
+
+          {/* Toggle quick suggestion chips for extra chat space */}
+          <button
+            type="button"
+            className={`ai-settings-btn ${showSuggestions ? 'active' : ''}`}
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            title={showSuggestions ? "Hide quick suggestions (maximizes workspace)" : "Show quick suggestions"}
+          >
+            <Wand2 size={13} />
+          </button>
+
+          {/* Expand to wide view toggle */}
+          {onToggleExpand && (
+            <button 
+              type="button"
+              className={`ai-settings-btn ${isExpanded ? 'active' : ''}`}
+              onClick={onToggleExpand}
+              title={isExpanded ? "Collapse to standard width (390px)" : "Expand to wide studio view (520px)"}
+            >
+              {isExpanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            </button>
+          )}
+
           {onOpenSettings && (
             <button 
               type="button"
@@ -213,45 +241,48 @@ export default function AiAssistant({
         </div>
       </div>
 
-      {/* 2. Category Quick Filters */}
-      <div className="ai-category-strip">
-        {categories.map((cat) => {
-          const Icon = cat.icon;
-          const isActive = selectedCategory === cat.id;
-          return (
-            <button 
-              key={cat.id}
-              type="button"
-              className={`ai-cat-pill ${isActive ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(cat.id)}
-            >
-              <Icon size={12} />
-              <span>{cat.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* 2. Category Quick Filters & Action Pills (Collapsible) */}
+      {showSuggestions && (
+        <>
+          <div className="ai-category-strip">
+            {categories.map((cat) => {
+              const Icon = cat.icon;
+              const isActive = selectedCategory === cat.id;
+              return (
+                <button 
+                  key={cat.id}
+                  type="button"
+                  className={`ai-cat-pill ${isActive ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(cat.id)}
+                >
+                  <Icon size={12} />
+                  <span>{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-      {/* 3. Action Pills Cloud */}
-      <div className="ai-chips-carousel">
-        {getFilteredCommands().map((cmd, i) => {
-          const Icon = cmd.icon || Sparkles;
-          return (
-            <button 
-              key={i} 
-              type="button"
-              className="ai-modern-chip"
-              onClick={() => handleChipClick(cmd.text)}
-              disabled={isProcessing}
-              title={`Click to execute: "${cmd.text}"`}
-            >
-              <Icon size={12} className="ai-chip-icon" />
-              <span className="ai-chip-text">{cmd.label || cmd.text}</span>
-              <span className="ai-chip-badge">{cmd.badge}</span>
-            </button>
-          );
-        })}
-      </div>
+          <div className="ai-chips-carousel">
+            {getFilteredCommands().map((cmd, i) => {
+              const Icon = cmd.icon || Sparkles;
+              return (
+                <button 
+                  key={i} 
+                  type="button"
+                  className="ai-modern-chip"
+                  onClick={() => handleChipClick(cmd.text)}
+                  disabled={isProcessing}
+                  title={`Click to execute: "${cmd.text}"`}
+                >
+                  <Icon size={12} className="ai-chip-icon" />
+                  <span className="ai-chip-text">{cmd.label || cmd.text}</span>
+                  <span className="ai-chip-badge">{cmd.badge}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* 4. Natural Chronological Chat Stream */}
       <div className="ai-chat-stream">

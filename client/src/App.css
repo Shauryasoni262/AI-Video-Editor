@@ -203,8 +203,26 @@
 }
 
 /* ==========================================================
-   2. MAIN WORKSPACE (LEFT - CENTER - RIGHT)
+   2. MAIN WORKSPACE (FULL HEIGHT DOCKED PANELS)
    ========================================================== */
+.editor-main-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--bg-app);
+}
+
+.editor-content-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .editor-workspace {
   display: flex;
   flex: 1;
@@ -715,13 +733,20 @@
    5. RIGHT PANEL (PROPERTIES & AI ASSISTANT)
    ========================================================== */
 .inspector-container {
-  width: 360px;
+  width: 390px;
   background-color: var(--bg-panel);
   border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
   z-index: 10;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.inspector-container.ai-expanded {
+  width: 520px;
 }
 
 .inspector-tabs {
@@ -1547,7 +1572,8 @@
    6. BOTTOM TIMELINE (MATTE OBSIDIAN, SLEEK RULER, LAPIS PLAYHEAD)
    ========================================================== */
 .timeline-container {
-  height: 250px;
+  height: 240px;
+  flex-shrink: 0;
   background-color: var(--bg-panel);
   border-top: 1px solid var(--border-subtle);
   display: flex;
