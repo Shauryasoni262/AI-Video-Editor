@@ -130,56 +130,76 @@ export class LocalBrainProvider extends BaseAiProvider {
     }
 
     // =========================================================================
-    // Intent 2: "Make a clean Instagram reel / TikTok / Short"
+    // Intent 2: "Make a clean reel / short / vertical format"
     // =========================================================================
     else if (p.includes('reel') || p.includes('instagram') || p.includes('tiktok') || p.includes('short')) {
-      const targetDuration = 10.0;
-      let startPoint = 0;
-
-      // If silence is detected at start, skip it
-      if (silences.length > 0 && silences[0].start < 1.0) {
-        startPoint = silences[0].end;
-      } else if (duration > 15) {
-        // Pick dynamic center
-        startPoint = Math.round((duration * 0.2) * 100) / 100;
-      }
-
-      const endPoint = Math.min(duration, Math.round((startPoint + targetDuration) * 100) / 100);
-
-      keep.push({
-        start: startPoint,
-        end: endPoint,
-        reason: 'Optimal 10s narrative arc for mobile social reels'
-      });
-
-      if (startPoint > 0) {
-        remove.push({
-          start: 0,
-          end: startPoint,
-          reason: 'Pre-reel buffer / slower intro'
-        });
-      }
-      if (endPoint < duration) {
-        remove.push({
-          start: endPoint,
-          end: duration,
-          reason: 'Footage exceeding 10s viral format'
-        });
-      }
-
-      speed = 1.15; // Snappy pacing for reels
-      effects.saturation = 1.3; // Punchy color pop
-      effects.contrast = 1.12;
       aspectRatio = '9:16';
-      captions = true;
-      textOverlay = {
-        text: 'Viral Reel',
-        position: 'bottom',
-        fontSize: 42
-      };
 
-      summary = `Generated a fast-paced 9:16 Social Reel with 1.15x speed, vibrant color grading & title.`;
-      reasoning = `Reels thrive on 9:16 vertical framing, high saturation (+30%), punchy pacing (1.15x speed), and a tight 10s attention window. Trimmed starting at ${startPoint}s to isolate the most engaging visual movement.`;
+      // 1. If detected silences exist, remove silences to keep continuous active content
+      if (silences.length > 0) {
+        let cur = 0;
+        for (const sil of silences) {
+          if (sil.start > cur + 0.4) {
+            keep.push({
+              start: Math.round(cur * 10) / 10,
+              end: Math.round(sil.start * 10) / 10,
+              reason: 'Active speech and visual motion segment'
+            });
+          }
+          remove.push({
+            start: Math.round(cur * 10) / 10 === 0 ? 0 : Math.round(sil.start * 10) / 10,
+            end: Math.round(sil.end * 10) / 10,
+            reason: `Detected dead-air pause (${sil.duration}s)`
+          });
+          cur = sil.end;
+        }
+        if (cur < duration - 0.4) {
+          keep.push({
+            start: Math.round(cur * 10) / 10,
+            end: Math.round(duration * 10) / 10,
+            reason: 'Closing active thought and visual context'
+          });
+        }
+        summary = `Constructed a 9:16 vertical reel by cutting ${remove.length} inactive pause(s), preserving core context.`;
+        reasoning = `Analyzed audio track and detected ${silences.length} dead-air intervals. Kept active content without forcing arbitrary time limits.`;
+      } else {
+        // No silences: Trim minor initial setup buffer if video is long, otherwise preserve full engaging footage
+        const leadCut = duration > 20 ? Math.min(1.5, duration * 0.08) : 0;
+        const tailCut = duration > 20 ? Math.min(1.0, duration * 0.05) : 0;
+        const startPoint = Math.round(leadCut * 10) / 10;
+        const endPoint = Math.round((duration - tailCut) * 10) / 10;
+
+        keep.push({
+          start: startPoint,
+          end: endPoint,
+          reason: 'Continuous high-engagement presentation and context'
+        });
+
+        if (startPoint > 0) {
+          remove.push({
+            start: 0,
+            end: startPoint,
+            reason: 'Static lead-in buffer'
+          });
+        }
+        if (endPoint < duration) {
+          remove.push({
+            start: endPoint,
+            end: Math.round(duration * 10) / 10,
+            reason: 'Trailing idle tail'
+          });
+        }
+
+        summary = `Reframed to 9:16 vertical reel format, preserving natural pace and context.`;
+        reasoning = `Visual and audio analysis showed steady engagement throughout. Adjusted framing to 9:16 without aggressive random cuts.`;
+      }
+
+      // Subtle cinematic grading if requested
+      if (p.includes('cinematic') || p.includes('color') || p.includes('grading')) {
+        effects.contrast = 1.08;
+        effects.saturation = 1.05;
+        effects.vignette = true;
+      }
     }
 
     // =========================================================================

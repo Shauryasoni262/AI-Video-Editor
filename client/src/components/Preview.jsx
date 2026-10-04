@@ -12,7 +12,10 @@ import {
   Smartphone,
   Monitor,
   Square,
-  Crop
+  Crop,
+  Sliders,
+  Move,
+  ArrowLeftRight
 } from 'lucide-react';
 import { formatTimecode, formatDuration } from '../utils/timeUtils';
 
@@ -26,15 +29,26 @@ export default function Preview({
   isPlaying,
   setIsPlaying,
   selectedClipId,
+  setSelectedClipId,
   aspectRatio = '16:9',
-  setAspectRatio
+  setAspectRatio,
+  customFrame = { width: 16, height: 9 },
+  setCustomFrame,
+  onUpdateText,
+  saveSnapshot
 }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
+  const viewportRef = useRef(null);
+  const resizeDataRef = useRef(null);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
   const [fitMode, setFitMode] = useState('cover'); // 'cover' (fill vertical reel) or 'contain' (letterbox)
+
+  // Interactive freeform dragging states
+  const [draggingTextId, setDraggingTextId] = useState(null);
+  const [resizingHandle, setResizingHandle] = useState(null); // 'se' | 'e' | 's'
 
   // Find the active video or image clip on the timeline for current time
   const activeClip = videoClips.find(c => {
@@ -186,6 +200,118 @@ export default function Preview({
     };
   };
 
+  // Handle freeform text overlay dragging
+  const handleTextPointerDown = (e, txt) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (setSelectedClipId) setSelectedClipId(txt.id);
+    setDraggingTextId(txt.id);
+  };
+
+  useEffect(() => {
+    if (!draggingTextId) return;
+
+    const handlePointerMove = (e) => {
+      if (!viewportRef.current) return;
+      const rect = viewportRef.current.getBoundingClientRect();
+      const rawX = ((e.clientX - rect.left) / rect.width) * 100;
+      const rawY = ((e.clientY - rect.top) / rect.height) * 100;
+      const clampedX = Math.round(Math.max(5, Math.min(95, rawX)));
+      const clampedY = Math.round(Math.max(5, Math.min(95, rawY)));
+
+      if (onUpdateText) {
+        onUpdateText(draggingTextId, { x: clampedX, y: clampedY, position: 'custom' });
+      }
+    };
+
+    const handlePointerUp = () => {
+      setDraggingTextId(null);
+      if (saveSnapshot) saveSnapshot();
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [draggingTextId, onUpdateText, saveSnapshot]);
+
+  // Handle interactive custom frame resizing
+  const handleResizeStart = (e, handle) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!viewportRef.current) return;
+    const rect = viewportRef.current.getBoundingClientRect();
+    resizeDataRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: rect.width,
+      startH: rect.height,
+      handle
+    };
+    setResizingHandle(handle);
+  };
+
+  useEffect(() => {
+    if (!resizingHandle || !resizeDataRef.current) return;
+
+    const handlePointerMove = (e) => {
+      const { startX, startY, startW, startH, handle } = resizeDataRef.current;
+      let newW = startW;
+      let newH = startH;
+
+      if (handle === 'e' || handle === 'se') {
+        newW = Math.max(90, startW + (e.clientX - startX));
+      }
+      if (handle === 's' || handle === 'se') {
+        newH = Math.max(90, startH + (e.clientY - startY));
+      }
+
+      const rawRatio = newW / newH;
+      let w, h;
+      if (rawRatio >= 1) {
+        w = Math.round(rawRatio * 9 * 10) / 10;
+        h = 9;
+      } else {
+        w = 9;
+        h = Math.round((9 / rawRatio) * 10) / 10;
+      }
+
+      if (setCustomFrame) {
+        setCustomFrame({ width: w, height: h });
+      }
+    };
+
+    const handlePointerUp = () => {
+      setResizingHandle(null);
+      resizeDataRef.current = null;
+      if (saveSnapshot) saveSnapshot();
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [resizingHandle, setCustomFrame, saveSnapshot]);
+
+  const getViewportStyle = () => {
+    if (aspectRatio === 'custom') {
+      const w = Math.max(0.5, parseFloat(customFrame?.width) || 16);
+      const h = Math.max(0.5, parseFloat(customFrame?.height) || 9);
+      const isLandscape = w >= h;
+      return {
+        aspectRatio: `${w} / ${h}`,
+        maxWidth: '100%',
+        maxHeight: '100%',
+        ...(isLandscape ? { width: '100%', height: 'auto' } : { height: '92%', width: 'auto' })
+      };
+    }
+    return {};
+  };
+
   // Find active text overlays at this timecode
   const activeTexts = textOverlays.filter(t => {
     const start = t.startTime || 0;
@@ -196,38 +322,47 @@ export default function Preview({
   return (
     <div className="preview-container" ref={containerRef}>
       {/* Top Aspect Ratio Toolbar */}
-      <div className="preview-top-toolbar">
-        <div className="aspect-ratio-selector">
-          <button 
-            type="button" 
-            className={`aspect-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
-            onClick={() => setAspectRatio && setAspectRatio('9:16')}
-            title="9:16 Vertical Reel / TikTok / Shorts"
-          >
-            <Smartphone size={13} />
-            <span>9:16 Reel</span>
-          </button>
-          <button 
-            type="button" 
-            className={`aspect-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
-            onClick={() => setAspectRatio && setAspectRatio('16:9')}
-            title="16:9 Widescreen / Landscape"
-          >
-            <Monitor size={13} />
-            <span>16:9 Wide</span>
-          </button>
-          <button 
-            type="button" 
-            className={`aspect-btn ${aspectRatio === '1:1' ? 'active' : ''}`}
-            onClick={() => setAspectRatio && setAspectRatio('1:1')}
-            title="1:1 Square Format"
-          >
-            <Square size={12} />
-            <span>1:1</span>
-          </button>
-        </div>
+      <div className="preview-top-toolbar-container">
+        <div className="preview-top-toolbar">
+          <div className="aspect-ratio-selector">
+            <button 
+              type="button" 
+              className={`aspect-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
+              onClick={() => setAspectRatio && setAspectRatio('9:16')}
+              title="9:16 Vertical Reel / TikTok / Shorts"
+            >
+              <Smartphone size={13} />
+              <span>9:16 Reel</span>
+            </button>
+            <button 
+              type="button" 
+              className={`aspect-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
+              onClick={() => setAspectRatio && setAspectRatio('16:9')}
+              title="16:9 Widescreen / Landscape"
+            >
+              <Monitor size={13} />
+              <span>16:9 Wide</span>
+            </button>
+            <button 
+              type="button" 
+              className={`aspect-btn ${aspectRatio === '1:1' ? 'active' : ''}`}
+              onClick={() => setAspectRatio && setAspectRatio('1:1')}
+              title="1:1 Square Format"
+            >
+              <Square size={12} />
+              <span>1:1</span>
+            </button>
+            <button 
+              type="button" 
+              className={`aspect-btn ${aspectRatio === 'custom' ? 'active' : ''}`}
+              onClick={() => setAspectRatio && setAspectRatio('custom')}
+              title="Custom Frame - Drag handles or set custom ratio"
+            >
+              <Sliders size={13} />
+              <span>Custom Frame</span>
+            </button>
+          </div>
 
-        {aspectRatio === '9:16' && (
           <button
             type="button"
             className="fit-toggle-btn"
@@ -235,18 +370,117 @@ export default function Preview({
             title={fitMode === 'cover' ? 'Switch to Fit (Letterbox)' : 'Switch to Fill (Full-bleed Reel)'}
           >
             <Crop size={12} />
-            <span>{fitMode === 'cover' ? 'Fill (Full Reel)' : 'Fit (Letterbox)'}</span>
+            <span>{fitMode === 'cover' ? 'Fill Frame' : 'Fit (Letterbox)'}</span>
           </button>
+        </div>
+
+        {/* Custom Frame Quick Presets & Controls */}
+        {aspectRatio === 'custom' && (
+          <div className="custom-frame-controls-bar">
+            <div className="custom-presets-group">
+              <span className="custom-group-label">Presets:</span>
+              <button 
+                type="button" 
+                className={`custom-preset-chip ${customFrame.width === 16 && customFrame.height === 9 ? 'active' : ''}`}
+                onClick={() => setCustomFrame && setCustomFrame({ width: 16, height: 9 })}
+              >
+                16:9 Wide
+              </button>
+              <button 
+                type="button" 
+                className={`custom-preset-chip ${customFrame.width === 9 && customFrame.height === 16 ? 'active' : ''}`}
+                onClick={() => setCustomFrame && setCustomFrame({ width: 9, height: 16 })}
+              >
+                9:16 Reel
+              </button>
+              <button 
+                type="button" 
+                className={`custom-preset-chip ${customFrame.width === 1 && customFrame.height === 1 ? 'active' : ''}`}
+                onClick={() => setCustomFrame && setCustomFrame({ width: 1, height: 1 })}
+              >
+                1:1
+              </button>
+              <button 
+                type="button" 
+                className={`custom-preset-chip ${customFrame.width === 4 && customFrame.height === 5 ? 'active' : ''}`}
+                onClick={() => setCustomFrame && setCustomFrame({ width: 4, height: 5 })}
+                title="4:5 Instagram Feed Portrait"
+              >
+                4:5 Insta
+              </button>
+              <button 
+                type="button" 
+                className={`custom-preset-chip ${customFrame.width === 21 && customFrame.height === 9 ? 'active' : ''}`}
+                onClick={() => setCustomFrame && setCustomFrame({ width: 21, height: 9 })}
+                title="21:9 Ultrawide Cinema"
+              >
+                21:9 Cinema
+              </button>
+              <button 
+                type="button" 
+                className={`custom-preset-chip ${customFrame.width === 4 && customFrame.height === 3 ? 'active' : ''}`}
+                onClick={() => setCustomFrame && setCustomFrame({ width: 4, height: 3 })}
+                title="4:3 Classic TV"
+              >
+                4:3 Retro
+              </button>
+            </div>
+
+            <div className="custom-inputs-group">
+              <span className="custom-group-label">Ratio:</span>
+              <div className="custom-ratio-inputs">
+                <input 
+                  type="number" 
+                  min="0.5" 
+                  max="100" 
+                  step="0.5"
+                  value={customFrame.width}
+                  onChange={(e) => setCustomFrame && setCustomFrame(prev => ({ ...prev, width: Math.max(0.5, parseFloat(e.target.value) || 1) }))}
+                  className="custom-dim-input"
+                  title="Width Ratio"
+                />
+                <span className="custom-dim-sep">:</span>
+                <input 
+                  type="number" 
+                  min="0.5" 
+                  max="100" 
+                  step="0.5"
+                  value={customFrame.height}
+                  onChange={(e) => setCustomFrame && setCustomFrame(prev => ({ ...prev, height: Math.max(0.5, parseFloat(e.target.value) || 1) }))}
+                  className="custom-dim-input"
+                  title="Height Ratio"
+                />
+              </div>
+
+              <button 
+                type="button"
+                className="custom-flip-btn"
+                onClick={() => setCustomFrame && setCustomFrame(prev => ({ width: prev.height, height: prev.width }))}
+                title="Flip Width & Height Orientation"
+              >
+                <ArrowLeftRight size={11} />
+                <span>Flip</span>
+              </button>
+
+              <span className="custom-hint-pill">
+                💡 Drag frame handles below to resize freely
+              </span>
+            </div>
+          </div>
         )}
       </div>
 
       {/* Center Viewport */}
       <div className="preview-viewport-wrapper">
-        <div className={`preview-viewport aspect-${aspectRatio.replace(':', '-')}`}>
+        <div 
+          ref={viewportRef}
+          className={`preview-viewport aspect-${aspectRatio === 'custom' ? 'custom' : aspectRatio.replace(':', '-')} ${resizingHandle ? 'is-resizing' : ''}`}
+          style={getViewportStyle()}
+        >
           {activeClip ? (
             <>
-              {/* If 9:16 and letterboxed (contain), render ambient blurred background */}
-              {aspectRatio === '9:16' && fitMode === 'contain' && (
+              {/* If letterboxed (contain), render ambient blurred background */}
+              {fitMode === 'contain' && (
                 <div 
                   className="preview-ambient-blur"
                   style={{
@@ -268,7 +502,7 @@ export default function Preview({
                   className="preview-image"
                   style={{
                     ...getFilterStyle(),
-                    objectFit: aspectRatio === '9:16' ? fitMode : 'contain',
+                    objectFit: fitMode,
                     width: '100%',
                     height: '100%',
                     display: 'block'
@@ -281,7 +515,7 @@ export default function Preview({
                   className="preview-video"
                   style={{
                     ...getFilterStyle(),
-                    objectFit: aspectRatio === '9:16' ? fitMode : 'contain'
+                    objectFit: fitMode
                   }}
                   muted={isMuted || activeClip.muteOriginalAudio}
                   volume={volume}
@@ -299,26 +533,78 @@ export default function Preview({
                 <div className="preview-grain-overlay" />
               )}
 
-              {/* Text Overlays rendering */}
-              {activeTexts.map(txt => (
-                <div 
-                  key={txt.id} 
-                  className={`preview-text-overlay ${txt.position || 'bottom'} ${txt.animation ? `text-anim-${txt.animation}` : ''}`}
-                  style={{
-                    fontSize: `${txt.fontSize || (aspectRatio === '9:16' ? 26 : 36)}px`,
-                    color: txt.color || '#ffffff',
-                    ...(txt.background ? {
-                      background: 'rgba(0, 0, 0, 0.65)',
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      width: 'auto',
-                      display: 'inline-block'
-                    } : {})
-                  }}
-                >
-                  {txt.text}
-                </div>
-              ))}
+              {/* Freeform Draggable Text Overlays */}
+              {activeTexts.map(txt => {
+                const isSelected = selectedClipId === txt.id;
+                const isDragging = draggingTextId === txt.id;
+
+                let posX = txt.x !== undefined ? txt.x : 50;
+                let posY = txt.y !== undefined ? txt.y : (
+                  txt.position === 'top' ? 15 :
+                  txt.position === 'center' ? 50 : 85
+                );
+
+                return (
+                  <div 
+                    key={txt.id} 
+                    className={`preview-text-overlay ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${txt.animation ? `text-anim-${txt.animation}` : ''}`}
+                    style={{
+                      left: `${posX}%`,
+                      top: `${posY}%`,
+                      transform: 'translate(-50%, -50%)',
+                      fontSize: `${txt.fontSize || (aspectRatio === '9:16' ? 26 : 36)}px`,
+                      color: txt.color || '#ffffff',
+                      ...(txt.background ? {
+                        background: 'rgba(0, 0, 0, 0.65)',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        backdropFilter: 'blur(4px)'
+                      } : {})
+                    }}
+                    onPointerDown={(e) => handleTextPointerDown(e, txt)}
+                    title="Click to select • Drag freely to position"
+                  >
+                    {isSelected && (
+                      <div className="text-drag-badge">
+                        <Move size={10} />
+                        <span>X: {posX}% • Y: {posY}%</span>
+                      </div>
+                    )}
+                    <span className="text-content-span">{txt.text}</span>
+                  </div>
+                );
+              })}
+
+              {/* Custom Frame Interactive Drag Handles */}
+              {aspectRatio === 'custom' && (
+                <>
+                  <div 
+                    className="frame-resize-handle handle-e"
+                    onPointerDown={(e) => handleResizeStart(e, 'e')}
+                    title="Drag to resize frame width"
+                  >
+                    <div className="handle-bar-vertical" />
+                  </div>
+                  <div 
+                    className="frame-resize-handle handle-s"
+                    onPointerDown={(e) => handleResizeStart(e, 's')}
+                    title="Drag to resize frame height"
+                  >
+                    <div className="handle-bar-horizontal" />
+                  </div>
+                  <div 
+                    className="frame-resize-handle handle-se"
+                    onPointerDown={(e) => handleResizeStart(e, 'se')}
+                    title="Drag corner to freely reshape frame ratio"
+                  >
+                    <div className="handle-corner-dot" />
+                  </div>
+                  <div className="frame-dimension-pill">
+                    <span>Custom: {customFrame.width} : {customFrame.height}</span>
+                    <span className="frame-ratio-tag">({(customFrame.width / customFrame.height).toFixed(2)}:1)</span>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <div className="preview-placeholder">

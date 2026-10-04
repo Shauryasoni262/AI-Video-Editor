@@ -45,8 +45,8 @@ export async function analyzeVideo(filePath, storageDir, options = {}) {
   // 3. Scene Change Detection
   const sceneAnalysis = await detectSceneTransitions(filePath, ffmpeg, duration);
 
-  // 4. Sample Representative Frames (Visual Understanding)
-  const sampledFrames = await sampleRepresentativeFrames(filePath, storageDir, ffmpeg, duration);
+  // 4. Sample Representative Frames (Adaptive Visual Understanding)
+  const sampledFrames = await sampleRepresentativeFrames(filePath, storageDir, ffmpeg, duration, sceneAnalysis.detectedCuts);
 
   return {
     metadata: {
@@ -176,21 +176,67 @@ function detectSceneTransitions(filePath, ffmpeg, duration) {
 }
 
 /**
- * Extracts 3 to 5 small thumbnail frames across the video and converts to base64
+ * Adaptively extracts representative frames across the video and converts to base64.
+ * Combines even timeline distribution with detected scene transitions.
+ * - Under 15s: 5–6 frames
+ * - 15s to 60s: 8–12 frames
+ * - Over 60s: 12–16 frames
  */
-async function sampleRepresentativeFrames(filePath, storageDir, ffmpeg, duration) {
+async function sampleRepresentativeFrames(filePath, storageDir, ffmpeg, duration, detectedCuts = []) {
   const frames = [];
   const sampleFolder = path.join(storageDir, 'thumbnails', 'samples');
   if (!fs.existsSync(sampleFolder)) {
     fs.mkdirSync(sampleFolder, { recursive: true });
   }
 
-  // Calculate timestamps at 15%, 40%, 65%, 85% of duration
-  const ratios = [0.15, 0.40, 0.65, 0.85];
-  const timestamps = ratios.map(r => Math.max(0.5, Math.min(duration - 0.5, duration * r)));
+  // Determine target sample count based on duration
+  let targetCount = 5;
+  if (duration > 60) {
+    targetCount = 14;
+  } else if (duration > 30) {
+    targetCount = 10;
+  } else if (duration > 15) {
+    targetCount = 8;
+  } else if (duration > 8) {
+    targetCount = 6;
+  }
 
-  for (let i = 0; i < timestamps.length; i++) {
-    const time = Math.round(timestamps[i] * 100) / 100;
+  // 1. Generate evenly distributed timestamps
+  const rawTimestamps = new Set();
+  rawTimestamps.add(Math.min(0.5, duration * 0.05));
+  rawTimestamps.add(Math.max(0.5, duration - Math.min(1.0, duration * 0.05)));
+
+  for (let i = 1; i < targetCount; i++) {
+    const t = (duration * i) / targetCount;
+    rawTimestamps.add(Math.round(t * 10) / 10);
+  }
+
+  // 2. Include timestamps right after detected scene transitions (0.5s after cut)
+  if (Array.isArray(detectedCuts) && detectedCuts.length > 0) {
+    for (const cut of detectedCuts) {
+      const sceneSample = Math.min(duration - 0.5, cut + 0.5);
+      if (sceneSample > 0.2 && sceneSample < duration - 0.2) {
+        rawTimestamps.add(Math.round(sceneSample * 10) / 10);
+      }
+    }
+  }
+
+  // 3. Sort and filter out timestamps that are too close (< 1.2s apart) to keep payload optimal
+  const sorted = Array.from(rawTimestamps).sort((a, b) => a - b);
+  const filteredTimestamps = [];
+  for (const t of sorted) {
+    if (t >= 0 && t <= duration) {
+      if (filteredTimestamps.length === 0 || t - filteredTimestamps[filteredTimestamps.length - 1] >= 1.2) {
+        filteredTimestamps.push(t);
+      }
+    }
+  }
+
+  // Cap at max 16 frames to keep API payload fast and lightweight
+  const finalTimestamps = filteredTimestamps.slice(0, 16);
+
+  for (let i = 0; i < finalTimestamps.length; i++) {
+    const time = Math.round(finalTimestamps[i] * 100) / 100;
     const outFilename = `sample_${Date.now()}_${i}.jpg`;
     const outPath = path.join(sampleFolder, outFilename);
 
@@ -209,7 +255,7 @@ async function sampleRepresentativeFrames(filePath, storageDir, ffmpeg, duration
         const base64Data = buffer.toString('base64');
         frames.push({
           timestamp: time,
-          ratio: `${Math.round(ratios[i] * 100)}%`,
+          ratio: `${Math.round((time / duration) * 100)}%`,
           base64: base64Data,
           mimeType: 'image/jpeg',
           localUrl: `/media/thumbnails/samples/${outFilename}`

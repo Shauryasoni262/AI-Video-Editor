@@ -12,7 +12,12 @@ import {
   Type, 
   Trash2,
   Clock,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Move,
+  Smartphone,
+  Monitor,
+  Square,
+  ArrowLeftRight
 } from 'lucide-react';
 
 export default function Properties({
@@ -20,23 +25,180 @@ export default function Properties({
   selectedText,
   onUpdateClip,
   onUpdateText,
-  onDeleteSelected
+  onDeleteSelected,
+  aspectRatio = '16:9',
+  setAspectRatio,
+  customFrame = { width: 16, height: 9 },
+  setCustomFrame,
+  saveSnapshot
 }) {
   if (!selectedClip && !selectedText) {
     return (
-      <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
-        Select a video clip or text item on the timeline to edit its properties and effects.
+      <div className="inspector-content">
+        {/* Project Framing Settings */}
+        <div className="property-group">
+          <div className="property-group-title">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sliders size={14} style={{ color: 'var(--primary)' }} />
+              <span>Project Framing</span>
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <span className="property-label">Aspect Ratio Preset</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              <button 
+                type="button" 
+                className={`filter-pill ${aspectRatio === '16:9' ? 'active' : ''}`}
+                style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '5px' }}
+                onClick={() => {
+                  if (saveSnapshot) saveSnapshot();
+                  setAspectRatio && setAspectRatio('16:9');
+                }}
+              >
+                <Monitor size={12} />
+                <span>16:9 Wide</span>
+              </button>
+              <button 
+                type="button" 
+                className={`filter-pill ${aspectRatio === '9:16' ? 'active' : ''}`}
+                style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '5px' }}
+                onClick={() => {
+                  if (saveSnapshot) saveSnapshot();
+                  setAspectRatio && setAspectRatio('9:16');
+                }}
+              >
+                <Smartphone size={12} />
+                <span>9:16 Reel</span>
+              </button>
+              <button 
+                type="button" 
+                className={`filter-pill ${aspectRatio === '1:1' ? 'active' : ''}`}
+                style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '5px' }}
+                onClick={() => {
+                  if (saveSnapshot) saveSnapshot();
+                  setAspectRatio && setAspectRatio('1:1');
+                }}
+              >
+                <Square size={12} />
+                <span>1:1 Square</span>
+              </button>
+              <button 
+                type="button" 
+                className={`filter-pill ${aspectRatio === 'custom' ? 'active' : ''}`}
+                style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '5px' }}
+                onClick={() => {
+                  if (saveSnapshot) saveSnapshot();
+                  setAspectRatio && setAspectRatio('custom');
+                }}
+              >
+                <Sliders size={12} />
+                <span>Custom</span>
+              </button>
+            </div>
+          </div>
+
+          {aspectRatio === 'custom' && (
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span className="property-label">Custom Ratio (W : H)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input 
+                  type="number" 
+                  min="0.5" 
+                  max="100" 
+                  step="0.5"
+                  value={customFrame.width}
+                  onChange={(e) => {
+                    const w = Math.max(0.5, parseFloat(e.target.value) || 1);
+                    setCustomFrame && setCustomFrame(prev => ({ ...prev, width: w }));
+                  }}
+                  className="project-title-input"
+                  style={{ width: '60px', textAlign: 'center', background: 'var(--bg-panel-secondary)', border: '1px solid var(--border-subtle)', padding: '4px' }}
+                />
+                <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>:</span>
+                <input 
+                  type="number" 
+                  min="0.5" 
+                  max="100" 
+                  step="0.5"
+                  value={customFrame.height}
+                  onChange={(e) => {
+                    const h = Math.max(0.5, parseFloat(e.target.value) || 1);
+                    setCustomFrame && setCustomFrame(prev => ({ ...prev, height: h }));
+                  }}
+                  className="project-title-input"
+                  style={{ width: '60px', textAlign: 'center', background: 'var(--bg-panel-secondary)', border: '1px solid var(--border-subtle)', padding: '4px' }}
+                />
+                <button 
+                  type="button" 
+                  className="btn-icon"
+                  style={{ background: 'var(--bg-panel-secondary)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+                  onClick={() => setCustomFrame && setCustomFrame(prev => ({ width: prev.height, height: prev.width }))}
+                  title="Flip Orientation"
+                >
+                  <ArrowLeftRight size={11} />
+                  <span>Flip</span>
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                <button 
+                  type="button" 
+                  className="filter-pill"
+                  style={{ fontSize: '10px', padding: '2px 8px' }}
+                  onClick={() => setCustomFrame && setCustomFrame({ width: 4, height: 5 })}
+                >
+                  4:5 Insta
+                </button>
+                <button 
+                  type="button" 
+                  className="filter-pill"
+                  style={{ fontSize: '10px', padding: '2px 8px' }}
+                  onClick={() => setCustomFrame && setCustomFrame({ width: 21, height: 9 })}
+                >
+                  21:9 Cinema
+                </button>
+                <button 
+                  type="button" 
+                  className="filter-pill"
+                  style={{ fontSize: '10px', padding: '2px 8px' }}
+                  onClick={() => setCustomFrame && setCustomFrame({ width: 4, height: 3 })}
+                >
+                  4:3 Retro
+                </button>
+              </div>
+
+              <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px' }}>
+                💡 You can also drag the resize handles directly on the video preview!
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
+          Select a video clip or text overlay on the timeline to edit its specific properties.
+        </div>
       </div>
     );
   }
 
   // If a text item is selected
   if (selectedText) {
+    const isCustomPosition = selectedText.position === 'custom' || selectedText.x !== undefined || selectedText.y !== undefined;
+    const posX = selectedText.x !== undefined ? selectedText.x : 50;
+    const posY = selectedText.y !== undefined ? selectedText.y : (
+      selectedText.position === 'top' ? 15 :
+      selectedText.position === 'center' ? 50 : 85
+    );
+
     return (
       <div className="inspector-content">
         <div className="property-group">
           <div className="property-group-title">
-            <span>Text Overlay</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Type size={14} style={{ color: 'var(--primary)' }} />
+              <span>Text Overlay</span>
+            </span>
             <button className="btn-icon" onClick={onDeleteSelected} title="Delete Text">
               <Trash2 size={14} style={{ color: 'var(--accent-rose)' }} />
             </button>
@@ -67,17 +229,101 @@ export default function Properties({
           </div>
 
           <div className="property-row">
-            <span className="property-label">Position</span>
+            <span className="property-label">Position Mode</span>
             <select 
               style={{ background: 'var(--bg-panel-secondary)', border: '1px solid var(--border-subtle)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px' }}
               value={selectedText.position || 'bottom'}
-              onChange={(e) => onUpdateText(selectedText.id, { position: e.target.value })}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'bottom') {
+                  onUpdateText(selectedText.id, { position: 'bottom', x: 50, y: 85 });
+                } else if (val === 'center') {
+                  onUpdateText(selectedText.id, { position: 'center', x: 50, y: 50 });
+                } else if (val === 'top') {
+                  onUpdateText(selectedText.id, { position: 'top', x: 50, y: 15 });
+                } else {
+                  onUpdateText(selectedText.id, { position: 'custom', x: posX, y: posY });
+                }
+              }}
             >
               <option value="bottom">Bottom Subtitle</option>
               <option value="center">Center Screen</option>
               <option value="top">Top Banner</option>
+              <option value="custom">Free Drag (Custom X/Y)</option>
             </select>
           </div>
+
+          {/* If Custom or Dragged: Precision Coordinates Sliders */}
+          {isCustomPosition && (
+            <div style={{ background: 'rgba(37, 99, 235, 0.05)', border: '1px solid rgba(37, 99, 235, 0.15)', borderRadius: '6px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Move size={12} style={{ color: 'var(--primary)' }} />
+                  <span>Freeform Positioning</span>
+                </span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                  X: {posX}% • Y: {posY}%
+                </span>
+              </div>
+
+              <div className="property-row">
+                <span className="property-label">Horizontal (X)</span>
+                <input 
+                  type="range" 
+                  className="property-slider" 
+                  min="5" 
+                  max="95" 
+                  value={posX} 
+                  onChange={(e) => onUpdateText(selectedText.id, { x: parseInt(e.target.value, 10), position: 'custom' })}
+                />
+                <span className="property-value">{posX}%</span>
+              </div>
+
+              <div className="property-row">
+                <span className="property-label">Vertical (Y)</span>
+                <input 
+                  type="range" 
+                  className="property-slider" 
+                  min="5" 
+                  max="95" 
+                  value={posY} 
+                  onChange={(e) => onUpdateText(selectedText.id, { y: parseInt(e.target.value, 10), position: 'custom' })}
+                />
+                <span className="property-value">{posY}%</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                <button 
+                  type="button" 
+                  className="filter-pill"
+                  style={{ fontSize: '10px', flex: 1, textAlign: 'center' }}
+                  onClick={() => onUpdateText(selectedText.id, { x: 50, position: 'custom' })}
+                >
+                  Center X
+                </button>
+                <button 
+                  type="button" 
+                  className="filter-pill"
+                  style={{ fontSize: '10px', flex: 1, textAlign: 'center' }}
+                  onClick={() => onUpdateText(selectedText.id, { y: 50, position: 'custom' })}
+                >
+                  Center Y
+                </button>
+                <button 
+                  type="button" 
+                  className="filter-pill"
+                  style={{ fontSize: '10px', flex: 1, textAlign: 'center' }}
+                  onClick={() => onUpdateText(selectedText.id, { position: 'bottom', x: 50, y: 85 })}
+                >
+                  Reset
+                </button>
+              </div>
+
+              <div style={{ fontSize: '10.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
+                💡 Click & drag this text directly anywhere in the preview window!
+              </div>
+            </div>
+          )}
 
           <div className="property-row">
             <span className="property-label">Text Color</span>

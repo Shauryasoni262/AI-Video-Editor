@@ -114,6 +114,13 @@ export class AiManager {
     if (filePath && fs.existsSync(filePath)) {
       try {
         videoAnalysis = await analyzeVideo(filePath, this.storageDir);
+        // Combine Speech-to-Text Transcription (Whisper) if available
+        try {
+          const transcription = await this.speechToText.transcribe(filePath, videoAnalysis.audio);
+          videoAnalysis.transcription = transcription;
+        } catch (sttErr) {
+          videoAnalysis.transcription = { available: false, text: '', segments: [] };
+        }
       } catch (err) {
         console.warn('Video analysis warning:', err.message);
       }

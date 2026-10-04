@@ -229,6 +229,24 @@ export class ExportJob {
         vf += `,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1`;
       } else if (targetAspect === '1:1') {
         vf += `,scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+      } else if (targetAspect === '4:5') {
+        vf += `,scale=1080:1350:force_original_aspect_ratio=decrease,pad=1080:1350:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+      } else if (targetAspect === '21:9') {
+        vf += `,scale=2560:1080:force_original_aspect_ratio=decrease,pad=2560:1080:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+      } else if (targetAspect === '4:3') {
+        vf += `,scale=1440:1080:force_original_aspect_ratio=decrease,pad=1440:1080:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+      } else if (targetAspect === 'custom' && this.projectData.customFrame) {
+        const cw = Math.max(0.5, parseFloat(this.projectData.customFrame.width) || 16);
+        const ch = Math.max(0.5, parseFloat(this.projectData.customFrame.height) || 9);
+        let outW, outH;
+        if (cw >= ch) {
+          outW = 1920;
+          outH = Math.round((1920 * (ch / cw)) / 2) * 2;
+        } else {
+          outH = 1920;
+          outW = Math.round((1920 * (cw / ch)) / 2) * 2;
+        }
+        vf += `,scale=${outW}:${outH}:force_original_aspect_ratio=decrease,pad=${outW}:${outH}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
       } else if (this.preset === '1080p' || videoClips.length > 1) {
         vf += `,scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1`;
       } else if (this.preset === '4k') {
@@ -292,11 +310,13 @@ export class ExportJob {
         let xExpr = '(w-text_w)/2';
         let yExpr = 'h-text_h-60';
 
-        if (txt.position === 'top') yExpr = '60';
-        else if (txt.position === 'center') yExpr = '(h-text_h)/2';
-        else if (txt.x !== undefined && txt.y !== undefined) {
-          xExpr = `${txt.x}`;
-          yExpr = `${txt.y}`;
+        if (txt.x !== undefined && txt.y !== undefined) {
+          xExpr = `(w*${txt.x}/100)-(text_w/2)`;
+          yExpr = `(h*${txt.y}/100)-(text_h/2)`;
+        } else if (txt.position === 'top') {
+          yExpr = '60';
+        } else if (txt.position === 'center') {
+          yExpr = '(h-text_h)/2';
         }
 
         const enableExpr = `between(t\\,${start}\\,${end})`;

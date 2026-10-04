@@ -23,71 +23,48 @@ export class SpeechToTextEngine {
   }
 
   async transcribe(audioOrVideoPath, audioAnalysis = {}) {
-    if (!this.enabled) {
+    if (!this.enabled || !this.isWhisperInstalled()) {
       return {
-        enabled: false,
+        enabled: this.enabled,
+        available: false,
         text: '',
-        segments: []
+        segments: [],
+        message: 'Whisper CLI not installed on host. Speech transcription not available.'
       };
     }
 
-    if (this.isWhisperInstalled()) {
-      try {
-        const res = spawnSync('whisper', [
-          audioOrVideoPath,
-          '--model', 'base',
-          '--output_format', 'json',
-          '--language', 'en'
-        ], { encoding: 'utf-8', timeout: 30000 });
+    try {
+      const res = spawnSync('whisper', [
+        audioOrVideoPath,
+        '--model', 'base',
+        '--output_format', 'json',
+        '--language', 'en'
+      ], { encoding: 'utf-8', timeout: 30000 });
 
-        if (res.status === 0 && res.stdout) {
-          const parsed = JSON.parse(res.stdout);
-          return {
-            enabled: true,
-            provider: 'local-whisper',
-            text: parsed.text || '',
-            segments: (parsed.segments || []).map(s => ({
-              start: Math.round(s.start * 100) / 100,
-              end: Math.round(s.end * 100) / 100,
-              text: s.text.trim()
-            }))
-          };
-        }
-      } catch (err) {
-        console.warn('Local whisper execution failed:', err.message);
+      if (res.status === 0 && res.stdout) {
+        const parsed = JSON.parse(res.stdout);
+        return {
+          enabled: true,
+          available: true,
+          provider: 'local-whisper',
+          text: parsed.text || '',
+          segments: (parsed.segments || []).map(s => ({
+            start: Math.round(s.start * 100) / 100,
+            end: Math.round(s.end * 100) / 100,
+            text: s.text.trim()
+          }))
+        };
       }
-    }
-
-    // Fallback: estimate speech activity from non-silent segments
-    const silences = audioAnalysis.silences || [];
-    const duration = audioAnalysis.duration || 10;
-    const speechSegments = [];
-    let currentPos = 0;
-
-    for (const sil of silences) {
-      if (sil.start > currentPos + 0.5) {
-        speechSegments.push({
-          start: currentPos,
-          end: sil.start,
-          text: '[Spoken Dialogue / Audio Highlight]'
-        });
-      }
-      currentPos = sil.end;
-    }
-
-    if (currentPos < duration - 0.5) {
-      speechSegments.push({
-        start: currentPos,
-        end: duration,
-        text: '[Spoken Dialogue / Audio Highlight]'
-      });
+    } catch (err) {
+      console.warn('Local whisper execution failed:', err.message);
     }
 
     return {
       enabled: this.enabled,
-      provider: 'acoustic-speech-detector',
-      text: speechSegments.length > 0 ? speechSegments.map(s => s.text).join(' ') : '',
-      segments: speechSegments
+      available: false,
+      text: '',
+      segments: [],
+      message: 'Whisper transcription failed or unavailable.'
     };
   }
 }

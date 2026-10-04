@@ -44,8 +44,9 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedClipId, setSelectedClipId] = useState(null);
 
-  // Project Framing & Aspect Ratio: '16:9' | '9:16' | '1:1'
+  // Project Framing & Aspect Ratio: '16:9' | '9:16' | '1:1' | 'custom'
   const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [customFrame, setCustomFrame] = useState({ width: 16, height: 9 });
   const [aiToast, setAiToast] = useState(null);
 
   // Right Inspector View: 'properties' | 'ai'
@@ -112,11 +113,12 @@ export default function App() {
       videoClips: JSON.parse(JSON.stringify(videoClips)),
       audioClips: JSON.parse(JSON.stringify(audioClips)),
       textOverlays: JSON.parse(JSON.stringify(textOverlays)),
-      aspectRatio
+      aspectRatio,
+      customFrame: JSON.parse(JSON.stringify(customFrame))
     };
     setUndoStack(prev => [...prev.slice(-20), snapshot]);
     setRedoStack([]);
-  }, [videoClips, audioClips, textOverlays, aspectRatio]);
+  }, [videoClips, audioClips, textOverlays, aspectRatio, customFrame]);
 
   // Undo Action
   const handleUndo = () => {
@@ -126,7 +128,8 @@ export default function App() {
       videoClips: JSON.parse(JSON.stringify(videoClips)),
       audioClips: JSON.parse(JSON.stringify(audioClips)),
       textOverlays: JSON.parse(JSON.stringify(textOverlays)),
-      aspectRatio
+      aspectRatio,
+      customFrame: JSON.parse(JSON.stringify(customFrame))
     };
 
     setRedoStack(prev => [...prev, current]);
@@ -136,6 +139,7 @@ export default function App() {
     setAudioClips(previous.audioClips);
     setTextOverlays(previous.textOverlays);
     if (previous.aspectRatio) setAspectRatio(previous.aspectRatio);
+    if (previous.customFrame) setCustomFrame(previous.customFrame);
   };
 
   // Redo Action
@@ -146,7 +150,8 @@ export default function App() {
       videoClips: JSON.parse(JSON.stringify(videoClips)),
       audioClips: JSON.parse(JSON.stringify(audioClips)),
       textOverlays: JSON.parse(JSON.stringify(textOverlays)),
-      aspectRatio
+      aspectRatio,
+      customFrame: JSON.parse(JSON.stringify(customFrame))
     };
 
     setUndoStack(prev => [...prev, current]);
@@ -156,6 +161,7 @@ export default function App() {
     setAudioClips(next.audioClips);
     setTextOverlays(next.textOverlays);
     if (next.aspectRatio) setAspectRatio(next.aspectRatio);
+    if (next.customFrame) setCustomFrame(next.customFrame);
   };
 
   // 1. Upload Media
@@ -813,6 +819,7 @@ export default function App() {
         name: projectName,
         totalDuration,
         aspectRatio,
+        customFrame,
         videoClips,
         audioClips,
         textOverlays
@@ -833,6 +840,7 @@ export default function App() {
     setAudioClips(proj.audioClips || []);
     setTextOverlays(proj.textOverlays || []);
     if (proj.aspectRatio) setAspectRatio(proj.aspectRatio);
+    if (proj.customFrame) setCustomFrame(proj.customFrame);
     setCurrentTime(0);
     setSelectedClipId(proj.videoClips?.[0]?.id || null);
   };
@@ -846,6 +854,7 @@ export default function App() {
     setAudioClips([]);
     setTextOverlays([]);
     setAspectRatio('16:9');
+    setCustomFrame({ width: 16, height: 9 });
     setCurrentTime(0);
     setSelectedClipId(null);
     setUndoStack([]);
@@ -902,8 +911,13 @@ export default function App() {
               isPlaying={isPlaying}
               setIsPlaying={setIsPlaying}
               selectedClipId={selectedClipId}
+              setSelectedClipId={setSelectedClipId}
               aspectRatio={aspectRatio}
               setAspectRatio={setAspectRatio}
+              customFrame={customFrame}
+              setCustomFrame={setCustomFrame}
+              onUpdateText={handleUpdateText}
+              saveSnapshot={saveSnapshot}
             />
           </div>
 
@@ -953,6 +967,11 @@ export default function App() {
               onUpdateClip={handleUpdateClip}
               onUpdateText={handleUpdateText}
               onDeleteSelected={() => selectedClipId && handleDeleteSelected(selectedClipId)}
+              aspectRatio={aspectRatio}
+              setAspectRatio={setAspectRatio}
+              customFrame={customFrame}
+              setCustomFrame={setCustomFrame}
+              saveSnapshot={saveSnapshot}
             />
           ) : (
             <div className="inspector-content-ai">
@@ -986,7 +1005,8 @@ export default function App() {
           audioClips,
           textOverlays,
           totalDuration,
-          aspectRatio
+          aspectRatio,
+          customFrame
         }}
       />
 
