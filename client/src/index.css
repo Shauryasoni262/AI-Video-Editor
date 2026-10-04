@@ -48,7 +48,28 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+/* Allow clean text selection everywhere */
+body, p, span, h1, h2, h3, h4, h5, h6, label, code, pre, blockquote, input, textarea, .selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Vibrant selection styling */
+::selection {
+  background: rgba(99, 102, 241, 0.45);
+  color: #ffffff;
+}
+::-moz-selection {
+  background: rgba(99, 102, 241, 0.45);
+  color: #ffffff;
+}
+
+/* Only prevent selection on buttons and drag/scrub handles */
+button, .btn, .timeline-scrubber, .timeline-ruler, .playhead-handle, .resize-handle {
   user-select: none;
+  -webkit-user-select: none;
 }
 
 html, body, #root {

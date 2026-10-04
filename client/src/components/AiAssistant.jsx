@@ -8,6 +8,7 @@ import {
   X, 
   ArrowRight, 
   Check, 
+  Copy,
   Film, 
   Scissors, 
   Palette, 
@@ -24,6 +25,47 @@ import {
   Eye,
   Sliders
 } from 'lucide-react';
+
+function CopyButton({ text, label = 'Copy', className = '' }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    if (!text) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.warn('Failed to copy text:', err);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className={`ai-copy-btn ${copied ? 'copied' : ''} ${className}`}
+      onClick={handleCopy}
+      title={copied ? 'Copied to clipboard!' : `Copy ${label}`}
+    >
+      {copied ? <Check size={11} className="copy-check-icon" /> : <Copy size={11} />}
+      <span>{copied ? 'Copied' : 'Copy'}</span>
+    </button>
+  );
+}
 
 const ACTION_LABELS = {
   TRIM_START: 'Trim from Start',
@@ -234,8 +276,11 @@ export default function AiAssistant({
                 <User size={12} />
               </div>
               <div className="ai-user-content">
+                <div className="ai-user-header">
+                  <div className="ai-time-stamp">{item.timestamp}</div>
+                  <CopyButton text={item.prompt} label="prompt" />
+                </div>
                 <div className="ai-user-text">"{item.prompt}"</div>
-                <div className="ai-time-stamp">{item.timestamp}</div>
               </div>
             </div>
 
@@ -251,19 +296,25 @@ export default function AiAssistant({
                   <span>{item.friendlyTitle || ACTION_LABELS[item.actionType] || 'AI Edit Applied'}</span>
                 </div>
 
-                {!item.isConversational && (!item.undone ? (
-                  <button 
-                    type="button"
-                    className="ai-undo-trigger"
-                    onClick={() => onUndoLastEdit(idx)}
-                    title="Undo this specific edit"
-                  >
-                    <RotateCcw size={11} />
-                    <span>Undo Edit</span>
-                  </button>
-                ) : (
-                  <span className="ai-undone-flag">⤺ Reverted</span>
-                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CopyButton 
+                    text={item.description || item.error || item.friendlyTitle || 'AI Edit'} 
+                    label="response" 
+                  />
+                  {!item.isConversational && (!item.undone ? (
+                    <button 
+                      type="button"
+                      className="ai-undo-trigger"
+                      onClick={() => onUndoLastEdit(idx)}
+                      title="Undo this specific edit"
+                    >
+                      <RotateCcw size={11} />
+                      <span>Undo Edit</span>
+                    </button>
+                  ) : (
+                    <span className="ai-undone-flag">⤺ Reverted</span>
+                  ))}
+                </div>
               </div>
 
               <div className="ai-result-desc" style={{ whiteSpace: 'pre-line' }}>
@@ -323,14 +374,20 @@ export default function AiAssistant({
                     : `Ready to Apply: ${ACTION_LABELS[plannedAction.action?.type] || 'Timeline Edit'}`}
                 </span>
               </div>
-              <button 
-                type="button"
-                className="btn-icon-subtle" 
-                onClick={onCancelPlannedAction}
-                title="Dismiss"
-              >
-                <X size={14} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CopyButton 
+                  text={`Prompt: "${plannedAction.prompt}"\n${plannedAction.plan?.summary ? 'Summary: ' + plannedAction.plan.summary + '\n' : ''}${plannedAction.plan?.reasoning ? 'Reasoning: ' + plannedAction.plan.reasoning : ''}`} 
+                  label="plan" 
+                />
+                <button 
+                  type="button"
+                  className="btn-icon-subtle" 
+                  onClick={onCancelPlannedAction}
+                  title="Dismiss"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
 
             <div className="ai-proposal-prompt">

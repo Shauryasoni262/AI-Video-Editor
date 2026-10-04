@@ -2162,3 +2162,81 @@
   transform: translateX(2px);
 }
 
+/* Explicit Text Selection & Copy Utilities */
+.ai-assistant-wrapper,
+.ai-chat-stream,
+.ai-message-card,
+.ai-user-bubble,
+.ai-user-content,
+.ai-user-text,
+.ai-result-block,
+.ai-result-desc,
+.ai-proposal-card,
+.ai-proposal-prompt,
+.ai-proposal-desc,
+.ai-plan-reasoning-box,
+.reasoning-content,
+.reasoning-label,
+.ai-diff-row,
+.ai-diff-tag,
+.ai-time-stamp,
+.analysis-tag,
+.properties-panel,
+.settings-modal,
+.export-modal,
+.project-modal {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.ai-user-text,
+.ai-result-desc,
+.reasoning-content,
+.ai-proposal-prompt,
+.ai-proposal-desc,
+.ai-diff-tag {
+  cursor: text;
+}
+
+/* Copy Button */
+.ai-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  flex-shrink: 0;
+}
+
+.ai-copy-btn:hover {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #ffffff;
+}
+
+.ai-copy-btn.copied {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(16, 185, 129, 0.55);
+  color: #34d399;
+}
+
+.copy-check-icon {
+  color: #34d399;
+}
+
+.ai-user-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
